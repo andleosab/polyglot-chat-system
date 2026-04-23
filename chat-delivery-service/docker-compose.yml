@@ -11,22 +11,8 @@ services:
       - ${ENV_FILE:-.env.docker}	  
     environment:
       - JWT_JWK=${JWT_JWK:-REQUIRED}
-  #    KAFKA_BOOTSTRAP: ${KAFKA_BOOTSTRAP}
-  #    MESSAGE_SERVICE_URL: ${MESSAGE_SERVICE_URL}
-    # depends_on:
-    #   - kafka
     networks:
       - chat-demo-net   
-  # quarkus2:
-  #   image: quarkus/chat-delivery-service
-  #   ports:
-  #     - "8280:8080"
-  #   environment:
-  #     - KAFKA_BOOTSTRAP=kafka:9092
-  #   # depends_on:
-  #   #   - kafka
-  #   networks:
-  #     - chat-demo-net
 networks:
   chat-demo-net:
     # name: chat-demo-net   # same fixed network name
