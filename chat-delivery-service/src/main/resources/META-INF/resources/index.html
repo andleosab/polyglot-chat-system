@@ -1,0 +1,62 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Simple Chat WS Test</title>
+</head>
+<body>
+  <h3>Quarkus Chat WS Test</h3>
+  <label>Server (ws://host:port): <input id="server" value="ws://localhost:8080"/></label><br/>
+  <label>Username uuid: <input id="userId" value="User1uuid"/></label><br/>
+  <label>Username: <input id="username" value="User1name"/></label><br/>
+  <label>Recipient uuid: <input id="to" value="User2uuid"/></label><br/>
+  <label>Recipient name: <input id="toName" value="User2name"/></label><br/>
+  <label>JWT: <input id="jwt" value=""/></label><br/>
+  <button id="connect">Connect</button>
+  <button id="send">Send</button>
+  <pre id="log"></pre>
+
+<script>
+let ws;
+document.getElementById('connect').onclick = () => {
+	
+// using auth:	
+const token = document.getElementById('jwt').value;
+const quarkusHeaderProtocol = encodeURIComponent("quarkus-http-upgrade#Authorization#Bearer " + token);
+
+console.log('==> token: ' + token)
+	
+	
+  const server = document.getElementById('server').value;
+  const userId = document.getElementById('userId').value;
+  ws = new WebSocket(server + "/chat/" + encodeURIComponent(userId),
+  	["bearer-token-carrier", quarkusHeaderProtocol]);
+	
+  ws.onopen = () => log("connected");
+  ws.onmessage = (ev) => log("recv: " + ev.data);
+  ws.onclose = () => log("closed");
+};
+document.getElementById('send').onclick = () => {
+  const userId = document.getElementById('userId').value;
+  const username = document.getElementById('username').value;
+  const to = document.getElementById('to').value;
+  const toName = document.getElementById('toName').value;
+  const body = {
+    id: '' + Date.now() + '-' + Math.random(),
+    type: "CHAT_MESSAGE",
+    from: userId,
+	fromName: username,
+    to: to,
+	toName: toName,
+    message: "Hello " + to + " @ " + new Date().toISOString(),
+    timestamp: Date.now()
+  };  
+  ws.send(JSON.stringify(body));
+  log("sent: " + JSON.stringify(body));
+};
+function log(s) {
+  document.getElementById('log').textContent += s + "\n";
+}
+</script>
+</body>
+</html>

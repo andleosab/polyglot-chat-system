@@ -1,0 +1,13 @@
+ORIGIN=http://localhost
+PUBLIC_DELIVERY_API_BASE=ws://localhost/chat
+USER_API_BASE=http://chat-user-service:8080/user
+MESSAGE_API_BASE=http://chat-message-service:8080/messaging
+
+USE_BETTER_AUTH=true
+PUBLIC_USE_BETTER_AUTH=true
+BETTER_AUTH_SECRET=Cbb+euG0nYfWs0WIJSwCo1o/84O2pZRGZla/RyHwzPE=
+BETTER_AUTH_URL=http://localhost
+DATABASE_URL=postgres://postgres:postgres@postgres:5432/chat-auth
+GOOGLE_CLIENT_SECRET=
+GOOGLE_CLIENT_ID=
+JWT_SECRET=419rMzCK3tlB+MvWrjBoLtztd5xovFVRJWDa+gO3J3A=

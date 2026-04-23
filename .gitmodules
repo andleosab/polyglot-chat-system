@@ -1,0 +1,15 @@
+[submodule "chat-message-service"]
+	path = chat-message-service
+	url = https://github.com/andleosab/chat-message-service
+[submodule "chat-infra"]
+	path = chat-infra
+	url = https://github.com/andleosab/chat-infra
+[submodule "chat-web"]
+	path = chat-web
+	url = https://github.com/andleosab/chat-web.git
+[submodule "chat-user-service"]
+	path = chat-user-service
+	url = https://github.com/andleosab/chat-user-service.git
+[submodule "chat-delivery-service"]
+	path = chat-delivery-service
+	url = https://github.com/andleosab/chat-delivery-service.git

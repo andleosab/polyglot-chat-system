@@ -1,0 +1,21 @@
+# used by migrate tool
+LOCALHOST_DB_URL=postgresql://postgres:postgres@localhost:5432/chat-message?sslmode=disable
+# used in docker container
+DB_URL=postgresql://postgres:postgres@postgres:5432/chat-message?sslmode=disable
+DB_NAME="chat_message"
+DB_USER="postgres"
+DB_PASSWORD="postgres"
+
+# overrides from Makefile
+DOCKER_FILE=./docker/Dockerfile.scratch
+DOCKER_IMAGE=chat-message-service
+
+KAFKA_BROKERS=localhost:19092
+KAFKA_CONSUMER_TOPIC=chat.messages
+KAFKA_CONSUMER_GROUP=chat-message-service
+KAFKA_PRODUCER_TOPIC_PARTICIPANT_CREATED=chat.participants.created
+KAFKA_PRODUCER_TOPIC_PARTICIPANT_REMOVED=chat.participants.removed
+
+JWT_SECRET=419rMzCK3tlB+MvWrjBoLtztd5xovFVRJWDa+gO3J3A=
+JWT_ISSUER=chat-delivery-service,chat-web
+JWT_AUDIENCE=chat-message-service

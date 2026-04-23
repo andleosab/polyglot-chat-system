@@ -1,0 +1,16 @@
+# version: '3.9'
+
+services:
+
+  chat-ui:
+    image: chat-web:dist
+    container_name: chat-web
+    ports:
+      - "3000:3000"
+    env_file:
+      - ${ENV_FILE:-.env.local.docker}
+    networks:
+      - chat-demo-net   
+networks:
+  chat-demo-net:
+    external: true             

@@ -1,0 +1,53 @@
+version: "2"
+
+sql:
+  - engine: "postgresql"
+    schema: "./internal/db/migrations/"
+    # schema: "./schema.sql"
+    queries: "./internal/db/queries"
+    gen:
+      go:
+        # this can be used instead of mapping nullable varchar or text type to string pointers.
+        # non-nullaable varchar or text types will still be mapped to string by default.
+        # https://docs.sqlc.dev/en/stable/reference/datatypes.html#text
+        #emit_pointers_for_null_types: true
+        package: "sqlcdb"
+        out: "./internal/db/sqlc"
+        sql_package: "pgx/v5"
+        overrides:
+          - db_type: "uuid"
+            go_type: "github.com/google/uuid.UUID"
+          - db_type: "timestamptz"
+            go_type: "time.Time"
+            nullable: false
+          - db_type: "timestamptz"
+            go_type:
+              type: "time.Time"
+              pointer: true
+            nullable: true
+          # TIMESTAMP WITH TIME ZONE  maps to "pg_catalog.timestamptz". Add mappings below to map it to time.Time as well
+          - db_type: "pg_catalog.timestamptz"
+            go_type: "time.Time"
+            nullable: false
+          - db_type: "pg_catalog.timestamptz"
+            go_type:
+              type: "time.Time"
+              pointer: true
+            nullable: true            
+          - db_type: "pg_catalog.varchar"
+            go_type: "string"
+            nullable: false
+          - db_type: "pg_catalog.varchar"
+            go_type:
+              type: "string"
+              pointer: true
+            nullable: true
+          # to map BIGINT (not PK) to int64 instead of pgtype.Int8. PK BIGINT will still be mapped to int64 by default.  
+          - db_type: "pg_catalog.int8"
+            go_type: "int64"
+            nullable: false
+          - db_type: "pg_catalog.int8"
+            go_type:
+              type: "int64"
+              pointer: true
+            nullable: true            

@@ -1,0 +1,41 @@
+# ----------------------------------------
+# 1. Core Go Artifacts
+# ----------------------------------------
+
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+bin/
+
+# Test artifacts
+*.test
+*.out
+*.coverprofile
+
+# Dependencies: The 'vendor' directory should be ignored if not used, 
+# relying on go.mod/go.sum (standard practice).
+vendor/
+
+# Go workspace file (multi-module development)
+go.work
+go.work.sum
+
+# ----------------------------------------
+# 2. Operating System and Local Files (Mac-centric)
+# ----------------------------------------
+
+# macOS metadata files
+.DS_Store
+._*
+
+# ----------------------------------------
+# 3. Sensitive/Transient Files
+# ----------------------------------------
+
+# Local environment/config files (crucial for security)
+.env
+.env.*

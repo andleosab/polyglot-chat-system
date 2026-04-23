@@ -1,0 +1,69 @@
+# ---- Builder ----
+FROM golang:1.25.5-alpine AS build
+
+WORKDIR /app
+
+# Environment for static build
+ENV CGO_ENABLED=0 \
+    GOOS=linux \
+    GOARCH=amd64
+
+# Copy go.mod/go.sum first for caching dependencies
+COPY go.mod go.sum ./
+
+# Use BuildKit cache mounts for faster incremental builds
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    go mod download
+
+# Copy source
+COPY . .
+    
+# Build binary using caches
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    go build -trimpath -ldflags="-s -w" -o main ./cmd/server
+
+# ---- CA Certificates for scratch ----
+# FROM alpine:3.23 AS certs
+# RUN apk --no-cache add ca-certificates
+
+# Copy CA certs for HTTPS/TLS into a temp dir
+# RUN mkdir /tmp/certs && cp -r /etc/ssl/certs/* /tmp/certs
+
+# --- Grab certs and zoneinfo for scratch runtime ---
+# RUN mkdir -p /tmp/runtime-files \
+#     && cp -r /etc/ssl/certs /tmp/runtime-files/certs \
+#     && cp -r /usr/share/zoneinfo /tmp/runtime-files/zoneinfo
+
+# ---- Runtime ----
+FROM scratch
+WORKDIR /app
+
+# Copy binary
+COPY --from=build /app/main .
+
+# Copy CA certificates
+# COPY --from=certs /tmp/certs /etc/ssl/certs
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+
+# # Copy CA certificates and zoneinfo
+# COPY --from=certs /tmp/runtime-files / 
+# ENV TZ=UTC
+
+# Set default env
+ENV PORT=8080
+EXPOSE 8080 9090
+
+# Use non-root user inside scratch
+# Note: scratch has no users; Go binary runs as root inside container
+# If security requires non-root, need to run with `--user` at container runtime
+# Example: docker run --user 10001:10001 -p 8080:8080 myapp:latest
+# Or use Kubernetes securityContext to set runAsUser/runAsGroup
+#   securityContext:
+#     runAsUser: 10001
+#     runAsGroup: 10001
+#     runAsNonRoot: true
+
+ENTRYPOINT ["/app/main"]
+CMD []

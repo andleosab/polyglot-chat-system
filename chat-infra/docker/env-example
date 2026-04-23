@@ -1,0 +1,5 @@
+DB_URL=postgresql://postgres:postgres@postgres:5432/chat-message?sslmode=disable
+DB_NAME="chat_message"
+DB_USER="postgres"
+DB_PASSWORD="postgres"
+

@@ -1,0 +1,17 @@
+# version: '3.9'
+
+services:
+
+  chat-user-service:
+    image: spring/chat-user-service
+    container_name: chat-user-service
+    ports:
+      - "8380:8080"
+    env_file:
+      - .env.docker	  
+    networks:
+      - chat-demo-net   
+networks:
+  chat-demo-net:
+    # name: chat-demo-net   # same fixed network name
+    external: true             

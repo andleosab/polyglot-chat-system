@@ -1,0 +1,425 @@
+openapi: 3.0.0
+info:
+  title: Chat Message Service
+  version: 1.0.0
+  description: >-
+    # 🚀 Get started here
+
+
+    This template guides you through CRUD operations (GET, POST, PUT, DELETE),
+    variables, and tests.
+
+
+    ## 🔖 **How to use this template**
+
+
+    #### **Step 1: Send requests**
+
+
+    RESTful APIs allow you to perform CRUD operations using the POST, GET, PUT,
+    and DELETE HTTP methods.
+
+
+    This collection contains each of these
+    [request](https://learning.postman.com/docs/sending-requests/requests/)
+    types. Open each request and click "Send" to see what happens.
+
+
+    #### **Step 2: View responses**
+
+
+    Observe the response tab for status code (200 OK), response time, and size.
+
+
+    #### **Step 3: Send new Body data**
+
+
+    Update or add new data in "Body" in the POST request. Typically, Body data
+    is also used in PUT request.
+
+
+    ```
+
+    {
+        "name": "Add your name in the body"
+    }
+
+     ```
+
+    #### **Step 4: Update the variable**
+
+
+    Variables enable you to store and reuse values in Postman. We have created a
+    [variable](https://learning.postman.com/docs/sending-requests/variables/)
+    called `base_url` with the sample request
+    [https://postman-api-learner.glitch.me](https://postman-api-learner.glitch.me).
+    Replace it with your API endpoint to customize this collection.
+
+
+    #### **Step 5: Add tests in the "Scripts" tab**
+
+
+    Adding tests to your requests can help you confirm that your API is working
+    as expected. You can write test scripts in JavaScript and view the output in
+    the "Test Results" tab.
+
+
+    ## 💪 Pro tips
+
+
+    - Use folders to group related requests and organize the collection.
+        
+    - Add more
+    [scripts](https://learning.postman.com/docs/writing-scripts/intro-to-scripts/)
+    to verify if the API works as expected and execute workflows.
+        
+
+    ## 💡Related templates
+
+
+    [API testing
+    basics](https://go.postman.co/redirect/workspace?type=personal&collectionTemplateId=e9a37a28-055b-49cd-8c7e-97494a21eb54&sourceTemplateId=ddb19591-3097-41cf-82af-c84273e56719)  
+
+    [API
+    documentation](https://go.postman.co/redirect/workspace?type=personal&collectionTemplateId=e9c28f47-1253-44af-a2f3-20dce4da1f18&sourceTemplateId=ddb19591-3097-41cf-82af-c84273e56719)  
+
+    [Authorization
+    methods](https://go.postman.co/redirect/workspace?type=personal&collectionTemplateId=31a9a6ed-4cdf-4ced-984c-d12c9aec1c27&sourceTemplateId=ddb19591-3097-41cf-82af-c84273e56719)
+servers:
+  - url: http://localhost:8080/conversations
+paths:
+  /conversations/{id}:
+    get:
+      summary: Get data
+      responses:
+        '200':
+          description: Get data
+      tags:
+        - Conversations
+      description: >-
+        This is a GET request and it is used to "get" data from an endpoint.
+        There is no request body for a GET request, but you can use query
+        parameters to help specify the resource you want data on (e.g., in this
+        request, we have `id=1`).
+
+
+        A successful GET response will have a `200 OK` status, and should
+        include some kind of response body - for example, HTML web content or
+        JSON data.
+    parameters:
+      - name: id
+        in: path
+        required: true
+        deprecated: false
+        schema: {}
+        example: '1'
+    put:
+      summary: Update data
+      responses:
+        '200':
+          description: Update data
+      tags:
+        - Conversations
+      description: >-
+        This is a PUT request and it is used to overwrite an existing piece of
+        data. For instance, after you create an entity with a POST request, you
+        may want to modify that later. You can do that using a PUT request. You
+        typically identify the entity being updated by including an identifier
+        in the URL (eg. `id=1`).
+
+
+        A successful PUT request typically returns a `200 OK`, `201 Created`, or
+        `204 No Content` response code.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+            example:
+              name: Add your name in the body
+    delete:
+      summary: Delete data
+      responses:
+        '204':
+          description: Delete data
+      tags:
+        - Conversations
+      description: >-
+        This is a DELETE request, and it is used to delete data that was
+        previously created via a POST request. You typically identify the entity
+        being updated by including an identifier in the URL (eg. `id=1`).
+
+
+        A successful DELETE request typically returns a `200 OK`, `202
+        Accepted`, or `204 No Content` response code.
+  /conversations:
+    get:
+      summary: Get by user uuid
+      parameters:
+        - name: id
+          in: query
+          required: false
+          deprecated: false
+          schema: {}
+          example: de566b25-8558-48b5-b93f-76b92cf9eb29
+      responses:
+        '200':
+          description: Get by user uuid
+      tags:
+        - Conversations
+      description: >-
+        This is a GET request and it is used to "get" data from an endpoint.
+        There is no request body for a GET request, but you can use query
+        parameters to help specify the resource you want data on (e.g., in this
+        request, we have `id=1`).
+
+
+        A successful GET response will have a `200 OK` status, and should
+        include some kind of response body - for example, HTML web content or
+        JSON data.
+    post:
+      summary: Create group chat
+      responses:
+        '201':
+          description: Create group chat
+      tags:
+        - Conversations
+      description: >-
+        This is a POST request, submitting data to an API via the request body.
+        This request submits JSON data, and the data is reflected in the
+        response.
+
+
+        A successful POST request typically returns a `200 OK` or `201 Created`
+        response code.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                type:
+                  type: string
+                name:
+                  type: string
+            example:
+              type: group
+              name: Group-1
+  /conversations/private:
+    get:
+      summary: Get private conversation
+      parameters:
+        - name: user1
+          in: query
+          schema:
+            type: string
+          example: aeb76528-3935-480a-820c-535565de20ba
+        - name: user2
+          in: query
+          schema:
+            type: string
+          example: 2336e562-5228-4331-91fc-8ea7f41d8cab
+      responses:
+        '200':
+          description: Get private conversation
+      tags:
+        - Conversations
+      description: >-
+        This is a GET request and it is used to "get" data from an endpoint.
+        There is no request body for a GET request, but you can use query
+        parameters to help specify the resource you want data on (e.g., in this
+        request, we have `id=1`).
+
+
+        A successful GET response will have a `200 OK` status, and should
+        include some kind of response body - for example, HTML web content or
+        JSON data.
+  /conversations/ids:
+    get:
+      summary: Get IDs by user uuid
+      parameters:
+        - name: id
+          in: query
+          schema:
+            type: string
+          example: aeb76528-3935-480a-820c-535565de20ba
+      responses:
+        '200':
+          description: Get IDs by user uuid
+      tags:
+        - Conversations
+      description: >-
+        This is a GET request and it is used to "get" data from an endpoint.
+        There is no request body for a GET request, but you can use query
+        parameters to help specify the resource you want data on (e.g., in this
+        request, we have `id=1`).
+
+
+        A successful GET response will have a `200 OK` status, and should
+        include some kind of response body - for example, HTML web content or
+        JSON data.
+  /groups/{id}/participants:
+    post:
+      summary: Add participant
+      responses:
+        default:
+          description: Add participant
+      tags:
+        - Groups
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user_uuid:
+                  type: string
+                username:
+                  type: string
+                is_admin:
+                  type: boolean
+            example:
+              user_uuid: 984ed324-ba5b-448e-a432-eab458fa07d4
+              username: dude3
+              is_admin: true
+    parameters:
+      - name: id
+        in: path
+        required: true
+        deprecated: false
+        schema: {}
+        example: '2'
+  /groups/{id}/participants/{userId}:
+    delete:
+      summary: Delete participant
+      responses:
+        default:
+          description: Delete participant
+      tags:
+        - Groups
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+        example: '2'
+      - name: userId
+        in: path
+        required: true
+        deprecated: false
+        schema: {}
+        example: 3c45f875-7aaf-40f6-bdf8-54c6fffd5a25
+  /groups/{id}/participants/:
+    get:
+      summary: Get Participants
+      responses:
+        default:
+          description: Get Participants
+      tags:
+        - Groups
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+        example: '2'
+  /groups:
+    get:
+      summary: Get User's groups
+      parameters:
+        - name: id
+          in: query
+          schema:
+            type: string
+          example: de566b25-8558-48b5-b93f-76b92cf9eb29
+      responses:
+        default:
+          description: Get User's groups
+      tags:
+        - Groups
+  /conversations/{id}/messages:
+    post:
+      summary: Send Message
+      responses:
+        default:
+          description: Send Message
+      tags:
+        - Messages
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                conversation_id:
+                  type: integer
+                sender_uuid:
+                  type: string
+                content:
+                  type: string
+                timestamp:
+                  type: integer
+            example:
+              conversation_id: 20
+              sender_uuid: aeb76528-3935-480a-820c-535565de20ba
+              content: Hey Butiful!
+              timestamp: 1773373815293
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+        example: '1'
+    get:
+      summary: Get Conversaion messages
+      parameters:
+        - name: userid
+          in: query
+          schema:
+            type: string
+          example: 9b3cf4f2-9719-431b-9b37-8798da1eff63
+      responses:
+        '200':
+          description: Get Conversaion messages
+      tags:
+        - Messages
+  /conversations/{id}/messages/cursor:
+    get:
+      summary: Get Conversation messages Cursor
+      parameters:
+        - name: before
+          in: query
+          required: false
+          deprecated: false
+          schema: {}
+          example: '156'
+        - name: limit
+          in: query
+          required: false
+          deprecated: false
+          schema: {}
+          example: '30'
+        - name: userid
+          in: query
+          required: false
+          deprecated: false
+          schema: {}
+          example: 9b3cf4f2-9719-431b-9b37-8798da1eff63
+      responses:
+        '200':
+          description: Get Conversation messages Cursor
+      tags:
+        - Messages
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+        example: '1'

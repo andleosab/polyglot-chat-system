@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package chat_service;
+
+// --- Service Definition ---
+// The interface implemented by the Go Chat Message Service (Persistence).
+service ChatMessagePersistence {
+  
+  // Method for the Delivery Service to retrieve all users in a conversation.
+  rpc GetConversationMembers (MemberRequest) returns (MemberResponse);
+  
+  // Future method: To retrieve a message history page for an offline user.
+  // rpc GetMessageHistory (HistoryRequest) returns (HistoryResponse); 
+}
+
+
+// --- Message Definitions ---
+
+// Request message sent by the Delivery Service.
+message MemberRequest {
+  // The ID of the conversation to look up members for (from Kafka message payload).
+  string conversation_id = 1; 
+}
+
+// Response message returned by the Persistence Service.
+message MemberResponse {
+  // List of all usernames/user_ids that are members of the conversation.
+  // This is the list the Delivery Service iterates over to find local connections.
+  repeated string member_usernames = 1; 
+  
+  // Status code (useful for debugging, though standard gRPC status codes are primary)
+  int32 status_code = 2; 
+}

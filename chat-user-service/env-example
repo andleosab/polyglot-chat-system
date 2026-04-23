@@ -1,0 +1,5 @@
+# used by docker compose
+export DB_URL=jdbc:postgresql://postgres:5432/chat-user
+export DB_USERNAME=postgres
+export DB_PASSWORD=postgres
+export JWT_SECRET=419rMzCK3tlB+MvWrjBoLtztd5xovFVRJWDa+gO3J3A=

@@ -1,0 +1,141 @@
+# monitoring
+management:
+    endpoints:
+        web:
+            exposure:
+                include: "info,health"
+
+# default settings if no profiles provided
+logging:
+  config: classpath:logback-spring.xml
+#  file: ./logs/service.log
+#  level:
+#    root: ${LOGBACK_ROOT_LEVEL:INFO}
+#    reactor.netty.http.client.HttpClient: DEBUG  
+#    org.hibernate.SQL: DEBUG
+#    org.hibernate.type.descriptor.sql.BasicBinder: TRACE    
+    
+server:
+    port: ${SERVER_PORT:8080}
+    use-forward-headers: true
+    servlet:
+        register-default-servlet: true
+        context-path: /user
+    ssl:
+        enabled: false
+    http:
+        log-request-details: true
+
+spring:
+  mvc:
+     log-request-details: false
+  servlet:
+     multipart:
+       max-file-size: 10MB
+       max-request-size: 10MB   
+       
+  autoconfigure:
+     exclude: 
+        - org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
+        - org.springframework.boot.actuate.autoconfigure.security.servlet.ManagementWebSecurityAutoConfiguration
+
+  datasource:
+    url: ${db.url}
+    username: ${db.username}
+    password: ${db.password}
+#    hikari:
+#       # minimum number of idle connections maintained by HikariCP in a connection pool    
+#       minimumIdle: 5
+#       # maximum pool size 
+#       maximumPoolSize: 25
+#       # maximum number of milliseconds that a client will wait for a connection (default)
+#       connectionTimeout: 10000 
+#       # maximum idle time for connection (default)
+#       idleTimeout: 600000
+#       # maximum lifetime in milliseconds of a connection in the pool after it is closed. (default)
+#       maxLifetime: 1800000    
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    open-in-view: false
+    show-sql: false
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+    defer-datasource-initialization: true	
+  sql:
+    init: 
+      mode: always	      
+
+#--------------------------------
+# oAuth2 client credentials grant
+# to call another secured service
+#--------------------------------            
+#  security:
+#    oauth2:
+#      client:
+#        registration:
+#          llama_api:
+#            authorization-grant-type: client_credentials
+#            client-id: ${OAUTH2_CLIENT_ID}
+#            client-name: llama_api
+#            client-secret: ${OAUTH2_CLIENT_SECRET}
+#        provider: 
+#          llama_api:
+#            token-uri: https://apigw-st.telus.com/st/token
+            
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: true
+      
+# Producer properties
+  kafka.producer.bootstrap-servers: ${kafka.bootstrap.servers:http://localhost:9092}
+  kafka.producer.key-serializer: org.apache.kafka.common.serialization.StringSerializer
+#  kafka.producer.value-serializer: io.cloudevents.kafka.CloudEventSerializer
+  kafka.producer.value-serializer: org.apache.kafka.common.serialization.StringSerializer
+  kafka.producer.group-id: chat
+
+  kafka.producer.acks: all
+  kafka.producer.retries: 1
+
+# Common Kafka Properties
+#auto.create.topics.enable=true
+          
+# custom  kafka properties
+#kafka.producer.topic.default: ${KAFKA_PRODUCER_TOPIC:vendorFileMessage}   
+
+app.jwt.secret: ${JWT_SECRET}             
+
+---
+
+#spring:
+#  config:
+#    activate:
+#      on-profile: SSO
+#  security:
+#    oauth2:
+#      resourceserver:
+#        jwt:
+#          issuer-uri: https://teamsso-its04.telus.com
+#          jwk-set-uri: https://apigw-st.telus.com/st/jwks                 
+
+---
+
+# -- Environments
+# -- UA - UAT
+# -- ST - Staging
+# -- PR - Production
+# -- ND - or just all non dev
+
+spring:
+  config:
+    activate:
+      on-profile: ST,PR,ND
+
+    jpa:
+        generate-ddl: false
+        open-in-view: false
+        show-sql: false
+        hibernate:
+            ddl-auto: none

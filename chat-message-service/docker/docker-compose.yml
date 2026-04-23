@@ -1,0 +1,57 @@
+# version: "3.9" deprecated
+
+services:
+  chat-message-service:
+    image: ${DOCKER_IMAGE}
+    container_name: chat-message-service
+    # Run as non-root (works even in scratch)
+    user: "10001:10001"
+    ports:
+      - "8080:8080"   # REST / HTTP
+      - "9090:9090"   # gRPC
+      - "9100:9100"   # Prometheus metrics (optional)
+    environment:
+      # Example environment variables — update to match your app
+      APP_ENV: "production"
+      PORT: "8080"
+      GRPC_PORT: "9090"
+      METRICS_PORT: "9100"
+      DATABASE_URL: ${DB_URL}
+      KAFKA_BROKERS: "kafka:9092"
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ISSUER: ${JWT_ISSUER}
+      JWT_AUDIENCE: ${JWT_AUDIENCE}
+    # depends_on:
+      # - postgres
+      # - kafka
+    networks:
+      - chat-demo-net      
+
+  # ------ Postgres ------
+  # postgres:
+  #   image: postgres:17-alpine3.22
+  #   container_name: chat-postgres
+  #   environment:
+  #     POSTGRES_DB: ${DB_NAME}
+  #     POSTGRES_USER: ${DB_USER}
+  #     POSTGRES_PASSWORD: ${DB_PASSWORD}
+  #   volumes:
+  #     - ${HOME}/docker-volumes/postgres-17/data:/var/lib/postgresql/data
+  #   ports:
+  #     - "5432:5432"
+  #   healthcheck:
+  #     test: [ "CMD", "pg_isready", "-q", "-d", "postgres", "-U", "postgres" ]
+  #     timeout: 45s
+  #     interval: 10s
+  #     retries: 50      
+  #   networks:
+  #     - chat-demo-net
+
+volumes:
+  pgdata:
+  # redpanda-data:
+  #   driver: local
+networks:
+  chat-demo-net:
+    # name: chat-demo-net   # same fixed network name
+    external: true    
