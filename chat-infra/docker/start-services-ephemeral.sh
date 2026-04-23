@@ -1,3 +1,3 @@
 #!/bin/sh
 
-docker compose -f docker-compose-ephemeral.yml --env-file .env -p chat-demo-infra up -d
+docker compose -f docker-compose-ephemeral.yml --env-file .env up -d

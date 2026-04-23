@@ -76,11 +76,11 @@ docker-push:
 ## -------------------------------
 compose-up:
 	@echo "==> Bringing up Docker Compose..."
-	DOCKER_IMAGE=$(DOCKER_IMAGE) $(COMPOSE) -f $(COMPOSE_FILE) --env-file .env -p chat-demo up -d
+	DOCKER_IMAGE=$(DOCKER_IMAGE) $(COMPOSE) -f $(COMPOSE_FILE) --env-file .env up -d
 
 compose-down:
 	@echo "==> Shutting down Docker Compose..."
-	$(COMPOSE) -f $(COMPOSE_FILE) --env-file .env -p chat-demo down
+	$(COMPOSE) -f $(COMPOSE_FILE) down
 
 restart: compose-down compose-up
 	@echo "==> Restarted Docker Compose."

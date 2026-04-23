@@ -20,7 +20,7 @@ const handleSignIn = async () => {
     {
       onError(context) {
         if (context.error.status >= 500) {
-          errorMessage.set("Google sign-in is likely misconfigured. Check GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.");
+          errorMessage.set("Something went wrong. Please try again.");
         } else {
           errorMessage.set(context.error.message);
         }
@@ -79,7 +79,7 @@ const handleSignIn = async () => {
           {
             onError(context) {
               if (context.error.status >= 500) {
-                errorMessage.set("Something went wrong. Please try again.");
+                errorMessage.set("Google sign-in is likely misconfigured. Check GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.");
               } else {
                 errorMessage.set(context.error.message);
               }

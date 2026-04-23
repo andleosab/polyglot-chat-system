@@ -34,26 +34,25 @@ echo "Kafka port is reachable!"
 echo "======================================="
 echo "Starting service chat-user-service..."
 echo "======================================="
-(cd chat-user-service && cp env-example .env.docker && ./start-services.sh && rm .env.docker)
+# (cd chat-user-service && cp env-example .env.docker && ./start-services.sh && rm .env.docker)
+(cd chat-user-service && [ -f .env.docker ] || cp env-example .env.docker && ./start-services.sh)
 
 echo "======================================="
 echo "Starting service chat-delivery-service..."
 echo "======================================="
-(cd chat-delivery-service && cp env-example .env.docker && ./start-services.sh && rm .env.docker)   
+# (cd chat-delivery-service && cp env-example .env.docker && ./start-services.sh && rm .env.docker)   
+(cd chat-delivery-service && [ -f .env.docker ] || cp env-example .env.docker && ./start-services.sh)
 
 echo "======================================="
 echo "Starting service chat-message-service..."
 echo "======================================="
-(cd chat-message-service && cp env-example .env && make migrate-up compose-up && rm .env)
+# (cd chat-message-service && cp env-example .env && make migrate-up compose-up && rm .env)
+(cd chat-message-service && [ -f .env ] || cp env-example .env && make migrate-up compose-up)
 
 echo "======================================="
 echo "Starting chat-web..."
 echo "======================================="
 # (cd chat-web && cp env-example .env.local.docker && ./compose-up.sh && rm .env.local.docker)
-(cd chat-web && \
-  CREATED=0; \
-  if [ ! -f .env.local.docker ]; then cp env-example .env.local.docker && CREATED=1; fi; \
-  ./compose-up.sh; \
-  [ "$CREATED" -eq 1 ] && rm .env.local.docker)
+(cd chat-web && [ -f .env.docker ] || cp env-example .env.local.docker && ./compose-up.sh)
 
 echo "Services started successfully."

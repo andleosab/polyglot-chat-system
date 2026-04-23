@@ -9,5 +9,5 @@ JWT_JWK=$(echo -n "{\"kty\":\"oct\",\"alg\":\"HS256\",\"k\":\"$JWT_KEY_URL\",\"u
 env | grep JWT
 
 JWT_JWK=$JWT_JWK ENV_FILE=.env.docker \
-docker compose -f docker-compose.yml -p chat-demo up -d
+docker compose -f docker-compose.yml up -d
 
