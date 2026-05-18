@@ -70,6 +70,17 @@ Three databases on shared Postgres: `chat-auth` (Better Auth), `chat-user` (Spri
 - Wait for explicit approval before executing
 - Do not proceed if the plan involves more than 3 file changes without confirmation
 
+## Development practices
+
+**Adding features:** Implement as clean additions where the architecture allows — new files, new endpoints, new consumers — without touching existing logic. When a change to existing code is genuinely required, keep it surgical. The current system is fully tested and working.
+
+**Nginx routing:** Nginx only handles protocol-level concerns (the `/chat/` WebSocket upgrade route). New REST services do not require Nginx route additions — the BFF proxies them internally.
+
+**Verification (three layers):**
+1. UI smoke test — build and start the full stack (`./docker-build-all.sh`, `./compose-up.sh`), verify the golden path in the browser. Human-executed; the browser is the correct tool for WebSocket flows.
+2. API smoke test — targeted `curl` commands against the running stack for new REST endpoints.
+3. Unit tests — service layer tests with mocked dependencies, run per-component.
+
 ## Agent skills
 
 ### Issue tracker
