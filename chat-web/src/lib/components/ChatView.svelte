@@ -5,7 +5,7 @@
   import SendIcon from '@lucide/svelte/icons/send';
   import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 
-  import { send, onceNewConversation, cancelNewConversationListener } from '$lib/store/ws';
+  import { send, onceNewConversation, cancelNewConversationListener, typingSignal, sendTyping } from '$lib/store/ws';
   import { currentUser } from '$lib/store/user';
   import {
     messages,
@@ -43,6 +43,16 @@
 
   let message = $state('');
   let isNewConvo = $derived(!conversationId && !!targetUserUuid);
+
+  // ─── Typing indicator ─────────────────────────────────────────────────────
+
+  let _typingDebounce: ReturnType<typeof setTimeout> | null = null;
+
+  function handleTypingInput() {
+    if (!conversationId) return;
+    if (_typingDebounce) clearTimeout(_typingDebounce);
+    _typingDebounce = setTimeout(() => sendTyping(conversationId!), 400);
+  }
 
   // ─── Send ─────────────────────────────────────────────────────────────────
 
@@ -160,6 +170,7 @@
     reset();
     cancelNewConversationListener();
     observer?.disconnect();
+    if (_typingDebounce) clearTimeout(_typingDebounce);
   });
 </script>
 
@@ -189,7 +200,7 @@
     <div bind:this={sentinel}>
       {#if $isLoading}
         <div class="space-y-3 py-2">
-          {#each [65, 45, 75] as w}
+          {#each [65, 45, 75] as w (w)}
             <div class="flex items-center gap-2">
               <Skeleton class="h-9 rounded-2xl" style="width:{w}%" />
             </div>
@@ -255,6 +266,18 @@
     {/each}
   </section>
 
+  <!-- Typing indicator -->
+  {#if $typingSignal && $typingSignal.conversationId === conversationId && $typingSignal.from !== $currentUser?.userId}
+    <div class="px-4 pb-1 shrink-0 flex items-center gap-2 text-xs text-muted-foreground">
+      <div class="flex gap-1 items-center">
+        <span class="size-1.5 rounded-full bg-muted-foreground/60 animate-bounce [animation-delay:0ms]"></span>
+        <span class="size-1.5 rounded-full bg-muted-foreground/60 animate-bounce [animation-delay:150ms]"></span>
+        <span class="size-1.5 rounded-full bg-muted-foreground/60 animate-bounce [animation-delay:300ms]"></span>
+      </div>
+      <span>{$typingSignal.fromName} is typing…</span>
+    </div>
+  {/if}
+
   <!-- Input bar -->
   <footer class="border-t px-3 py-3 shrink-0 bg-background">
     <form onsubmit={handleSend} class="flex gap-2 items-center">
@@ -263,6 +286,7 @@
         type="text"
         placeholder="Message…"
         class="flex-1 rounded-full bg-muted border-transparent focus-visible:border-ring px-4"
+        oninput={handleTypingInput}
       />
       <Button
         type="submit"

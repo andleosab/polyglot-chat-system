@@ -50,6 +50,11 @@ echo "======================================="
 (cd chat-message-service && [ -f .env ] || cp env-example .env && make migrate-up compose-up)
 
 echo "======================================="
+echo "Starting service chat-presence-service..."
+echo "======================================="
+(cd chat-presence-service && [ -f .env.docker ] || cp env-example .env.docker && docker compose -f docker-compose.yml --env-file .env.docker up -d)
+
+echo "======================================="
 echo "Starting chat-web..."
 echo "======================================="
 # (cd chat-web && cp env-example .env.local.docker && ./compose-up.sh && rm .env.local.docker)

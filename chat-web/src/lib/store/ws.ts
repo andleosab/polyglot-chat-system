@@ -4,9 +4,15 @@ import type { ChatMessage, UserCreatedMessage } from '$lib/api/types/message';
 import { PUBLIC_DELIVERY_API_BASE } from '$env/static/public';
 
 export const userCreated: Writable<UserCreatedMessage | null> = writable(null);
-
-// export const messages: Writable<ChatMessage[]> = writable([]);
 export const isConnected: Writable<boolean> = writable(false);
+
+export interface TypingSignal {
+  conversationId: number;
+  from: string;
+  fromName: string;
+}
+export const typingSignal: Writable<TypingSignal | null> = writable(null);
+let _typingClearTimer: ReturnType<typeof setTimeout> | null = null;
 
 let reconnectAttempts = 0;
 const MAX_RECONNECT = 5;
@@ -78,6 +84,14 @@ export async function connect(userUuid: string) {
             return;
         }
 
+        // Typing indicator — set store then auto-clear after 4s
+        if (msg.type === 'TYPING') {
+            if (_typingClearTimer) clearTimeout(_typingClearTimer);
+            typingSignal.set({ conversationId: msg.conversationId!, from: msg.from, fromName: msg.fromName });
+            _typingClearTimer = setTimeout(() => typingSignal.set(null), 4000);
+            return;
+        }
+
         console.log('Received message:', msg);
 
         append(msg);   // ← write into shared messages store
@@ -136,4 +150,12 @@ export function send(body: ChatMessage) : void {
     } else {
         console.warn('WebSocket not connected. Message not sent.');
     }
+}
+
+export function sendTyping(conversationId: number): void {
+    fetch('/api/presence/presence/typing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conversationId: String(conversationId) }),
+    }).catch(() => {});
 }

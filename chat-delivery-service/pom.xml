@@ -68,6 +68,21 @@
 	    <artifactId>slf4j-jboss-logmanager</artifactId>
 	</dependency>
 
+	<dependency>
+	    <groupId>io.quarkus</groupId>
+	    <artifactId>quarkus-grpc</artifactId>
+	</dependency>
+
+	<dependency>
+	    <groupId>io.quarkus</groupId>
+	    <artifactId>quarkus-redis-client</artifactId>
+	</dependency>
+
+	<dependency>
+	    <groupId>io.quarkus</groupId>
+	    <artifactId>quarkus-scheduler</artifactId>
+	</dependency>
+
   </dependencies>
 
   <build>

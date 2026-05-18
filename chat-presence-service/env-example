@@ -1,0 +1,4 @@
+REDIS_URL=redis://redis:6379
+DATABASE_URL=postgresql://postgres:postgres@postgres:5432/chat-presence
+JWT_SECRET=419rMzCK3tlB+MvWrjBoLtztd5xovFVRJWDa+gO3J3A=
+GRPC_PORT=50051

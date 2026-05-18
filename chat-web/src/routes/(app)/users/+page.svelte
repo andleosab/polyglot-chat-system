@@ -2,6 +2,7 @@
 <script lang="ts">
   import type { PageProps } from './$types';
   import type { CreateUserResponse } from '$lib/api/types/user';
+  import type { PresenceInfo } from '$lib/api/types/presence';
   import * as Avatar from '$lib/components/ui/avatar/index.js';
   import { Button } from '$lib/components/ui/button/index.js';
   import MessageSquareIcon from '@lucide/svelte/icons/message-square';
@@ -11,6 +12,9 @@
   let { data } = $props() as PageProps;
   let wsUsers = $state<CreateUserResponse[]>([]);
   let users = $derived([...(data.users ?? []), ...wsUsers]);
+  let presenceMap = $derived(
+    (data.presenceMap ?? {}) as Record<string, { online: boolean; last_seen: string | null }>
+  );
 
   $effect(() => {
     const unsubscribe = userCreated.subscribe(newUser => {
@@ -31,6 +35,18 @@
 
   function initials(name: string) {
     return name.slice(0, 2).toUpperCase();
+  }
+
+  function relativeTime(iso: string | null): string {
+    if (!iso) return 'a while ago';
+    const diffMs = Date.now() - new Date(iso).getTime();
+    const diffMins = Math.floor(diffMs / 60_000);
+    if (diffMins < 1) return 'just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+    const diffDays = Math.floor(diffHours / 24);
+    return `${diffDays}d ago`;
   }
 </script>
 
@@ -53,16 +69,28 @@
     {:else}
       <ul class="divide-y divide-border/60">
         {#each users as user (user.userId)}
+          {@const presence = presenceMap[user.userId]}
+          {@const isOnline = presence?.online === true}
+          {@const lastSeen = presence?.last_seen ?? null}
           <li class="flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors">
-            <Avatar.Root class="size-10 rounded-xl shrink-0">
-              <Avatar.Fallback class="rounded-xl text-sm font-medium bg-primary/10 text-primary">
-                {initials(user.username)}
-              </Avatar.Fallback>
-            </Avatar.Root>
+            <div class="relative shrink-0">
+              <Avatar.Root class="size-10 rounded-xl">
+                <Avatar.Fallback class="rounded-xl text-sm font-medium bg-primary/10 text-primary">
+                  {initials(user.username)}
+                </Avatar.Fallback>
+              </Avatar.Root>
+              {#if isOnline}
+                <span class="absolute bottom-0 right-0 size-2.5 rounded-full bg-green-500 ring-2 ring-background"></span>
+              {/if}
+            </div>
 
             <div class="flex-1 min-w-0">
               <p class="font-medium text-sm truncate">{user.username}</p>
-              <p class="text-xs text-muted-foreground truncate">{user.email}</p>
+              {#if isOnline || (!isOnline && !lastSeen)}
+                <p class="text-xs text-muted-foreground truncate">{user.email}</p>
+              {:else}
+                <p class="text-xs text-muted-foreground truncate">Last seen {relativeTime(lastSeen)}</p>
+              {/if}
             </div>
 
             <Button
