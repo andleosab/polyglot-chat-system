@@ -6,8 +6,7 @@ import { svelteKitHandler } from "better-auth/svelte-kit";
 import { building } from '$app/environment';
 import type { CurrentUser } from '$lib/store/user';
 import { issueServiceToken, issueWsToken } from '$lib/server/jwt';
-
-import { USER_API_BASE, MESSAGE_API_BASE } from '$env/static/private';
+import { API } from '$lib/server/config';
 
 type ServiceConfig = {
   issueToken: (user: CurrentUser) => string;
@@ -15,11 +14,14 @@ type ServiceConfig = {
 
 // map service base URL → token strategy
 const SERVICE_MAP: Record<string, ServiceConfig> = {
-  [MESSAGE_API_BASE]: {
+  [API.messages]: {
     issueToken: (user) => issueServiceToken('chat-message-service', user)
   },
-  [USER_API_BASE]: {
+  [API.users]: {
     issueToken: (user) => issueServiceToken('chat-user-service', user)
+  },
+  [API.presence]: {
+    issueToken: (user) => issueServiceToken('chat-presence-service', user)
   }
 };
 

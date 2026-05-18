@@ -9,6 +9,7 @@ import org.demo.chat.client.CreateConversationRequest;
 import org.demo.chat.client.CreateConversationResponse;
 import org.demo.chat.client.MessageService;
 import org.demo.chat.client.CreateConversationRequest.Participant;
+import org.demo.chat.grpc.PresenceGrpcClient;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.jboss.resteasy.reactive.ClientWebApplicationException;
 import org.slf4j.Logger;
@@ -42,7 +43,9 @@ public class ChatSocket {
     ChatProducer producer;
     @Inject
     MessageService messageService;
-    
+    @Inject
+    PresenceGrpcClient presence;
+
     @Inject
     JsonWebToken jwt;
     
@@ -65,6 +68,7 @@ public class ChatSocket {
     @OnOpen
     public void onOpen(WebSocketConnection connection, @PathParam("username") String username) {
     	log.info("==> User joining: {}...", username);
+    	presence.connected(username);
     	
     	//TODO:
     	// get conversation IDs from Go message service that this
@@ -148,7 +152,8 @@ public class ChatSocket {
     public void onClose(WebSocketConnection connection, @PathParam("username") String username) {
     	
     	log.info("==> User left: {}", username);
-        
+    	presence.disconnected(username);
+
         Message departure = Message.builder()
     			.type(MessageType.USER_LEFT)
     			.from(username)

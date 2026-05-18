@@ -1,3 +1,6 @@
 export KAFKA_BOOTSTRAP=kafka:9092
 export MESSAGE_SERVICE_URL=http://chat-message-service:8080/messaging/conversations
 JWT_SECRET=419rMzCK3tlB+MvWrjBoLtztd5xovFVRJWDa+gO3J3A=
+PRESENCE_SERVICE_HOST=chat-presence-service
+PRESENCE_SERVICE_GRPC_PORT=50051
+REDIS_URL=redis://redis:6379

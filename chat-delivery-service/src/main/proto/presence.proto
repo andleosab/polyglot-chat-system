@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package presence;
+
+option java_package = "org.demo.chat.grpc";
+option java_outer_classname = "PresenceProto";
+option java_multiple_files = true;
+
+service PresenceService {
+  rpc Connected(ConnectionEvent) returns (Ack);
+  rpc Disconnected(ConnectionEvent) returns (Ack);
+  rpc Heartbeat(ConnectionEvent) returns (Ack);
+}
+
+message ConnectionEvent {
+  string user_uuid = 1;
+}
+
+message Ack {
+  bool ok = 1;
+}

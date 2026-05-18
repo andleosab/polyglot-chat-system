@@ -10,5 +10,6 @@ function required(name: string): string {
 
 export const API = {
   users: required('USER_API_BASE'),
-  messages: required('MESSAGE_API_BASE')
+  messages: required('MESSAGE_API_BASE'),
+  presence: required('PRESENCE_API_BASE'),
 } as const;

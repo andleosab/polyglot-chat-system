@@ -38,6 +38,19 @@ services:
       - "19092:19092"
     networks:
       - chat-demo-net 
+  redis:
+    image: redis:7-alpine
+    container_name: chat-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - chat-demo-net
+
   nginx:
     image: nginx:1.27-alpine
     container_name: nginx
