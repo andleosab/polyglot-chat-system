@@ -36,6 +36,10 @@ public class TypingSubscriber {
     void onStart(@Observes StartupEvent event) {
         ReactivePubSubCommands<String> pubsub = redis.pubsub(String.class);
         pubsub.subscribeAsMessagesToPatterns(TYPING_PATTERN)
+        	.onSubscription().invoke(() ->
+        		log.info("Typing subscription ACTIVE"))
+            .onFailure().invoke(err ->
+            	log.error("Typing subscription FAILED", err))        	
             .subscribe().with(
                 msg -> handleTyping(msg.getChannel(), msg.getPayload()),
                 err -> log.error("typing pub/sub subscribe failed: {}", err.getMessage())
@@ -47,6 +51,8 @@ public class TypingSubscriber {
         // channel: conversation:{conversationId}:typing
         String[] parts = channel.split(":");
         if (parts.length < 3) return;
+        
+        log.debug("--> Channel: {} Typing: {}", channel, payload);
 
         long conversationId;
         try {
