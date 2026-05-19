@@ -7,14 +7,16 @@
   import { Button } from '$lib/components/ui/button/index.js';
   import MessageSquareIcon from '@lucide/svelte/icons/message-square';
   import UsersIcon from '@lucide/svelte/icons/users';
-  import { userCreated } from '$lib/store/ws';
+  import { userCreated, presenceUpdate } from '$lib/store/ws';
 
   let { data } = $props() as PageProps;
   let wsUsers = $state<CreateUserResponse[]>([]);
   let users = $derived([...(data.users ?? []), ...wsUsers]);
-  let presenceMap = $derived(
+  let ssrPresenceMap = $derived(
     (data.presenceMap ?? {}) as Record<string, { online: boolean; last_seen: string | null }>
   );
+  let livePresence = $state<Record<string, { online: boolean; last_seen: string | null }>>({});
+  let presenceMap = $derived({ ...ssrPresenceMap, ...livePresence });
 
   $effect(() => {
     const unsubscribe = userCreated.subscribe(newUser => {
@@ -28,6 +30,22 @@
           updatedAt: ''
         }];
       }
+    });
+
+    return unsubscribe;
+  });
+
+  $effect(() => {
+    const unsubscribe = presenceUpdate.subscribe(update => {
+      if (!update) return;
+      const online = update.type === 'USER_JOINED';
+      livePresence = {
+        ...livePresence,
+        [update.from]: {
+          online,
+          last_seen: online ? null : new Date(update.timestamp).toISOString()
+        }
+      };
     });
 
     return unsubscribe;

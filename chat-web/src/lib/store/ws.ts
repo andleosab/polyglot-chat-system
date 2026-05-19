@@ -1,16 +1,11 @@
 import { writable, type Writable } from 'svelte/store';
 import { append } from '$lib/store/messages';         // ← shared store
-import type { ChatMessage, UserCreatedMessage } from '$lib/api/types/message';
+import type { ChatMessage, UserCreatedMessage, TypingSignal } from '$lib/api/types/message';
 import { PUBLIC_DELIVERY_API_BASE } from '$env/static/public';
 
 export const userCreated: Writable<UserCreatedMessage | null> = writable(null);
 export const isConnected: Writable<boolean> = writable(false);
-
-export interface TypingSignal {
-  conversationId: number;
-  from: string;
-  fromName: string;
-}
+export const presenceUpdate: Writable<ChatMessage | null> = writable(null);
 export const typingSignal: Writable<TypingSignal | null> = writable(null);
 let _typingClearTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -78,9 +73,10 @@ export async function connect(userUuid: string) {
 
         const msg: ChatMessage = rawMsg;
 
-        // Presence events — handle separately, never append to message store
+        // Live presence updates — set store, never append to message history
         if (msg.type === 'USER_JOINED' || msg.type === 'USER_LEFT') {
-            console.log('Presence event:', msg.type, msg.from);
+            console.log('Presence update:', msg.type, msg.from);
+            presenceUpdate.set(msg);
             return;
         }
 
