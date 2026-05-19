@@ -39,10 +39,13 @@ export function append(msg: ChatMessage): void {
 
   const msgResponse: MessageResponse = toMessageResponse(msg);
 
-  // ignore messages for other conversations
-  if (msgResponse.conversation_id !== activeConversationId) {
+  // No active conversation yet (recipient of the very first message in a new private chat):
+  // lock to the incoming conversation so subsequent messages filter correctly.
+  if (activeConversationId == null) {
+    activeConversationId = msgResponse.conversation_id;
+  } else if (msgResponse.conversation_id !== activeConversationId) {
     return;
-  }  
+  }
 
   messages.update(current => {
 
