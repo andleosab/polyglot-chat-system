@@ -58,6 +58,6 @@ echo "======================================="
 echo "Starting chat-web..."
 echo "======================================="
 # (cd chat-web && cp env-example .env.local.docker && ./compose-up.sh && rm .env.local.docker)
-(cd chat-web && [ -f .env.docker ] || cp env-example .env.local.docker && ./compose-up.sh)
+(cd chat-web && [ -f .env.local.docker ] || cp env-example .env.local.docker && ./compose-up.sh)
 
 echo "Services started successfully."
