@@ -9,6 +9,9 @@ export const messages = writable<MessageResponse[]>([]);
 export const isLoading = writable(false);
 export const hasMore = writable(true);
 export const fetchError = writable<string | null>(null);
+// Fires once when the first message in a new-conversation view arrives and the
+// conversation ID becomes known. ChatView subscribes to sync its prop.
+export const incomingConversationId = writable<number | null>(null);
 
 // ─── Internal cursor (not a store — no UI needs to react to it) ───────────────
 
@@ -43,6 +46,7 @@ export function append(msg: ChatMessage): void {
   // lock to the incoming conversation so subsequent messages filter correctly.
   if (activeConversationId == null) {
     activeConversationId = msgResponse.conversation_id;
+    incomingConversationId.set(msgResponse.conversation_id);
   } else if (msgResponse.conversation_id !== activeConversationId) {
     return;
   }
@@ -124,4 +128,5 @@ export function reset(): void {
     fetchError.set(null);
     cursor = null;
     activeConversationId = null;
+    incomingConversationId.set(null);
 }

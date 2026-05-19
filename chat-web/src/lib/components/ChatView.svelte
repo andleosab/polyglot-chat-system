@@ -15,6 +15,7 @@
     seed,
     fetchOlderMessages,
     reset,
+    incomingConversationId,
   } from '$lib/store/messages';
   import { Button } from '$lib/components/ui/button/index.js';
   import { Input } from '$lib/components/ui/input/index.js';
@@ -43,6 +44,14 @@
 
   let message = $state('');
   let isNewConvo = $derived(!conversationId && !!targetUserUuid);
+
+  // When the first message arrives in a new-conversation view, lock the local
+  // conversationId so typing indicators send and display correctly.
+  $effect(() => {
+    if (isNewConvo && $incomingConversationId) {
+      conversationId = $incomingConversationId;
+    }
+  });
 
   // ─── Typing indicator ─────────────────────────────────────────────────────
 
