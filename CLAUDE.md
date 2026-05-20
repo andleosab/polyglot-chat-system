@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Polyglot distributed chat system: SvelteKit BFF + Spring Boot (user profiles) + Go (message persistence) + Quarkus (WebSocket/Kafka fan-out), connected by Kafka and a shared HMAC-SHA256 JWT secret. See [README.md](README.md) and [docs/architecture.svg](docs/architecture.svg) for the full picture.
+Polyglot distributed chat system: SvelteKit BFF + Spring Boot (user profiles) + Go (message persistence) + Quarkus (WebSocket/Kafka fan-out) + FastAPI (presence), connected by Kafka and a shared HMAC-SHA256 JWT secret. See [README.md](README.md) and [docs/architecture.svg](docs/architecture.svg) for the full picture.
 
 ## Stack per service
 
@@ -14,6 +14,7 @@ Polyglot distributed chat system: SvelteKit BFF + Spring Boot (user profiles) + 
 | `chat-user-service` | Spring Boot 3, JPA | Chat user profile store |
 | `chat-message-service` | Go, Chi, SQLC | Conversations, participants, message history |
 | `chat-delivery-service` | Quarkus 3, SmallRye | WebSocket gateway + Kafka fan-out |
+| `chat-presence-service` | FastAPI, Redis, asyncpg | Online/last-seen presence + typing-indicator relay |
 | `chat-infra` | Docker Compose, Nginx, Redpanda | Local infrastructure |
 
 Each service has its own `CLAUDE.md` with stack-specific guidance.
@@ -43,6 +44,8 @@ Access at `http://localhost` (Nginx on :80).
 **Identity thread:** A single `useruuid` (UUID generated browser-side at signup) flows through Better Auth's user table → JWT `sub` → all Kafka message fields → Postgres foreign keys across every service.
 
 **Kafka fan-out:** Each `chat-delivery` pod uses `kafka.group.id=chat-delivery-service-${quarkus.uuid}` so every pod receives every `chat.messages` event and fans out to its own connected clients. No shared session store needed.
+
+**Presence:** `chat-web` BFF proxies `/api/presence/` to `chat-presence-service`. The delivery service broadcasts `USER_JOINED`/`USER_LEFT` directly over WebSocket on connect/disconnect (no Kafka hop needed — it already owns the connection lifecycle). `chat-presence-service` maintains online status in Redis (30s TTL, refreshed by heartbeat) and persists `last_seen` to Postgres on disconnect. Typing indicators are relayed via `POST /presence/typing` → Kafka `chat.typing` → delivery fan-out.
 
 ## Shared environment variables
 

@@ -1,6 +1,6 @@
 <svg width="100%" viewBox="0 0 680 560" role="img" xmlns="http://www.w3.org/2000/svg">
 <title>Chat Demo System Architecture</title>
-<desc>Architecture diagram: Browser connects through Nginx to chat-web BFF (SvelteKit) and chat-delivery-service (Quarkus WebSocket). BFF calls chat-user-service (Spring Boot) and chat-message-service (Go). Delivery service calls message service for conversation IDs on connect, and exchanges messages with Kafka. Message service produces participant events to Kafka and persists messages consumed from Kafka. Three PostgreSQL databases: chat-user, chat-message, and chat-auth (Better Auth).</desc>
+<desc>Architecture diagram: Browser connects through Nginx to chat-web BFF (SvelteKit) and chat-delivery-service (Quarkus WebSocket). BFF calls chat-user-service (Spring Boot), chat-message-service (Go), and chat-presence-service (FastAPI). Delivery service calls message service for conversation IDs on connect, broadcasts USER_JOINED/USER_LEFT directly over WebSocket, and exchanges messages with Kafka. Message service produces participant events to Kafka and persists messages consumed from Kafka. chat-presence-service stores online status in Redis and last_seen in Postgres. Three PostgreSQL databases: chat-user, chat-message, and chat-auth (Better Auth).</desc>
 <defs>
   <marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
     <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -76,6 +76,16 @@
   <text class="th" x="118" y="311" text-anchor="middle" dominant-baseline="central">chat-user</text>
   <text class="ts" x="118" y="330" text-anchor="middle" dominant-baseline="central">Spring Boot · JPA</text>
 </g>
+
+<!-- chat-presence-service -->
+<g class="c-blue">
+  <rect x="222" y="292" width="148" height="54" rx="8" stroke-width="0.5"/>
+  <text class="th" x="296" y="311" text-anchor="middle" dominant-baseline="central">chat-presence</text>
+  <text class="ts" x="296" y="330" text-anchor="middle" dominant-baseline="central">FastAPI · Redis</text>
+</g>
+
+<!-- chat-web → chat-presence -->
+<path d="M 185 236 L 185 272 L 296 272 L 296 292" fill="none" stroke-width="1" marker-end="url(#a)"/>
 
 <!-- chat-message-service -->
 <g class="c-blue">
