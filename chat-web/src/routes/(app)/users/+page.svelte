@@ -36,12 +36,9 @@
     const update = $presenceUpdate;
     if (!update) return;
     const online = update.type === 'USER_JOINED';
-    livePresence = {
-      ...livePresence,
-      [update.from]: {
-        online,
-        last_seen: online ? null : new Date(update.timestamp).toISOString()
-      }
+    livePresence[update.from] = {
+      online,
+      last_seen: online ? null : new Date(update.timestamp).toISOString()
     };
   });
 
