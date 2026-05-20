@@ -18,6 +18,13 @@ export interface UserCreatedMessage {
     timestamp: number;
 }
 
+export interface TypingSignal {
+    conversationId: number;
+    from: string;
+    fromName: string;
+}
+
+
 export interface MessageResponse {
     id: number | null; // will be undefined for new messages received via WS before they are saved to DB
     conversation_id: number;

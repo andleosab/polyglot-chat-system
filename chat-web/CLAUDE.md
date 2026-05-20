@@ -81,3 +81,14 @@ Core workflow:
 2. `agent-browser snapshot -i` - Get interactive elements with refs (@e1, @e2)
 3. `agent-browser click @e1` / `fill @e2 "text"` - Interact using refs
 4. Re-snapshot after page changes
+
+### UI testing checklist
+
+After any reactive event fires (WS message received, store updated, presence change, etc.):
+
+1. **Check the console for JS errors** — a screenshot proving the UI rendered is not enough; Svelte reactive crashes (`effect_update_depth_exceeded`, etc.) only show up in the console:
+   ```bash
+   agent-browser eval "document.querySelectorAll('*').length"  # page still responsive?
+   ```
+2. **Verify interactivity** — click a nav link or button after the event to confirm the page hasn't locked up. A crashed Svelte effect silently freezes the UI while the DOM still looks correct in a screenshot.
+3. **Confirm you're testing the new image** — after a rebuild, verify the running container is using the new image before running tests. Stale containers can make broken code appear to pass.

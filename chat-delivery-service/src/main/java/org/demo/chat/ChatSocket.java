@@ -1,5 +1,6 @@
 package org.demo.chat;
 
+import java.time.Instant;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
@@ -104,11 +105,11 @@ public class ChatSocket {
 //    	Set<Long> groups = resp.stream().map(l -> String.valueOf(l)).collect(Collectors.toSet());
     	connection.userData().put(WsKeys.GROUPS, resp);
     	connection.userData().put(WsKeys.USERNAME, username);
-    	
-        connection.sendTextAndAwait(Message.builder()
+
+        connection.broadcast().sendTextAndAwait(Message.builder()
                 .type(MessageType.USER_JOINED)
                 .from(username)
-                .build());    	
+                .build());
     	
 //    	return Message.builder()
 //    			.type(MessageType.USER_JOINED)
@@ -150,16 +151,16 @@ public class ChatSocket {
 
     @OnClose
     public void onClose(WebSocketConnection connection, @PathParam("username") String username) {
-    	
+
     	log.info("==> User left: {}", username);
     	presence.disconnected(username);
 
-        Message departure = Message.builder()
+        connection.broadcast().sendTextAndAwait(Message.builder()
     			.type(MessageType.USER_LEFT)
     			.from(username)
-    			.build();
-        connection.broadcast().sendTextAndAwait(departure);    	
-    	
+    			.timestamp(Instant.now().toEpochMilli())
+    			.build());
+
     }
     
     private Message resolvePrivateConversation(Message message, WebSocketConnection connection) throws Exception {
