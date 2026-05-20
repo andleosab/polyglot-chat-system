@@ -19,36 +19,30 @@
   let presenceMap = $derived({ ...ssrPresenceMap, ...livePresence });
 
   $effect(() => {
-    const unsubscribe = userCreated.subscribe(newUser => {
-      if (newUser && !users.some(u => u.userId === newUser.userId)) {
-        wsUsers = [...wsUsers, {
-          userId: newUser.userId,
-          username: newUser.username,
-          email: newUser.email,
-          isActive: true,
-          createdAt: new Date(newUser.timestamp).toISOString(),
-          updatedAt: ''
-        }];
-      }
-    });
-
-    return unsubscribe;
+    const newUser = $userCreated;
+    if (newUser && !users.some(u => u.userId === newUser.userId)) {
+      wsUsers = [...wsUsers, {
+        userId: newUser.userId,
+        username: newUser.username,
+        email: newUser.email,
+        isActive: true,
+        createdAt: new Date(newUser.timestamp).toISOString(),
+        updatedAt: ''
+      }];
+    }
   });
 
   $effect(() => {
-    const unsubscribe = presenceUpdate.subscribe(update => {
-      if (!update) return;
-      const online = update.type === 'USER_JOINED';
-      livePresence = {
-        ...livePresence,
-        [update.from]: {
-          online,
-          last_seen: online ? null : new Date(update.timestamp).toISOString()
-        }
-      };
-    });
-
-    return unsubscribe;
+    const update = $presenceUpdate;
+    if (!update) return;
+    const online = update.type === 'USER_JOINED';
+    livePresence = {
+      ...livePresence,
+      [update.from]: {
+        online,
+        last_seen: online ? null : new Date(update.timestamp).toISOString()
+      }
+    };
   });
 
   function initials(name: string) {
