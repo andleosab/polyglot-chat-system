@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redpanda-pvc
+  namespace: {{ .Release.Namespace }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: ""
+  volumeName: redpanda-pv
+  resources:
+    requests:
+      storage: 5Gi

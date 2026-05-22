@@ -1,0 +1,33 @@
+image:
+  repository: ""  # set via --set image.repository=... in CI
+  tag: "latest"
+
+service:
+  port: 3000
+
+env:
+  - name: PORT
+    value: "3000"
+  - name: USER_API_BASE
+    value: "http://chat-user-service.chat.svc.cluster.local:8080"
+  # BETTER_AUTH_URL must be set via --set in CI or updated here after terraform apply
+  # Use the node's external IP: http://<NODE_EXTERNAL_IP>:30080
+  - name: BETTER_AUTH_URL
+    value: "http://REPLACE_WITH_NODE_EXTERNAL_IP:30080"
+
+secretName: chat-secrets
+secretEnv:
+  - envName: JWT_SECRET
+    secretKey: jwt-secret
+  - envName: BETTER_AUTH_SECRET
+    secretKey: better-auth-secret
+  - envName: DATABASE_URL
+    secretKey: db-url-auth
+
+resources:
+  requests:
+    cpu: "100m"
+    memory: "128Mi"
+  limits:
+    cpu: "500m"
+    memory: "450Mi"

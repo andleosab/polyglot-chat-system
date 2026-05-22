@@ -1,0 +1,15 @@
+image:
+  repository: postgres
+  tag: "17-alpine3.22"
+  pullPolicy: IfNotPresent
+
+gcpProjectId: ""
+postgresPassword: "postgres"
+
+resources:
+  requests:
+    cpu: "100m"
+    memory: "128Mi"
+  limits:
+    cpu: "500m"
+    memory: "300Mi"

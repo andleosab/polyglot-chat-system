@@ -1,0 +1,28 @@
+image:
+  repository: ""  # set via --set image.repository=... in CI
+  tag: "latest"
+
+service:
+  port: 8000
+  grpcPort: 50051
+
+env:
+  - name: REDIS_URL
+    value: "redis://redis.chat.svc.cluster.local:6379"
+  - name: KAFKA_BOOTSTRAP
+    value: "redpanda.chat.svc.cluster.local:9092"
+
+secretName: chat-secrets
+secretEnv:
+  - envName: JWT_SECRET
+    secretKey: jwt-secret
+  - envName: DATABASE_URL
+    secretKey: db-url-presence
+
+resources:
+  requests:
+    cpu: "50m"
+    memory: "128Mi"
+  limits:
+    cpu: "300m"
+    memory: "256Mi"

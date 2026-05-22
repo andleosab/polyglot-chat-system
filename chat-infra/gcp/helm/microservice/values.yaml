@@ -1,0 +1,32 @@
+image:
+  repository: ""
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+service:
+  port: 8080
+  # grpcPort: 50051  # set to enable a second named port for gRPC
+
+# Plain (non-sensitive) environment variables
+env: []
+# - name: HTTP_PORT
+#   value: "8080"
+
+# Secret-backed environment variables — all reference the same K8s Secret
+secretName: ""
+secretEnv: []
+# - envName: JWT_SECRET
+#   secretKey: jwt-secret
+
+# Set for JVM services to bound heap (avoids OOM on the shared e2-medium node)
+javaToolOptions: ""
+
+resources:
+  requests:
+    cpu: "100m"
+    memory: "128Mi"
+  limits:
+    cpu: "500m"
+    memory: "400Mi"
+
+replicaCount: 1

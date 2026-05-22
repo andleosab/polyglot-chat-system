@@ -1,0 +1,5 @@
+apiVersion: v2
+name: redpanda
+description: Single-broker Redpanda (Kafka-compatible) for chat-demo
+type: application
+version: 0.1.0

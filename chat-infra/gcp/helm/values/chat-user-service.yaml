@@ -1,0 +1,33 @@
+image:
+  repository: ""  # set via --set image.repository=... in CI
+  tag: "latest"
+
+service:
+  port: 8080
+
+javaToolOptions: "-Xms64m -Xmx256m"
+
+env:
+  - name: SERVER_PORT
+    value: "8080"
+  - name: db.url
+    value: "jdbc:postgresql://postgres.chat.svc.cluster.local:5432/chat-user"
+  - name: db.username
+    value: "postgres"
+  - name: KAFKA_BOOTSTRAP
+    value: "redpanda.chat.svc.cluster.local:9092"
+
+secretName: chat-secrets
+secretEnv:
+  - envName: JWT_SECRET
+    secretKey: jwt-secret
+  - envName: db.password
+    secretKey: postgres-password
+
+resources:
+  requests:
+    cpu: "100m"
+    memory: "256Mi"
+  limits:
+    cpu: "500m"
+    memory: "350Mi"
