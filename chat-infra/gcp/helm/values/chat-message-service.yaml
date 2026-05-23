@@ -22,6 +22,27 @@ secretEnv:
   - envName: DATABASE_URL
     secretKey: db-url-message
 
+# Runs golang-migrate against the message DB before the main container starts.
+# Both the binary and the migration SQL files are baked into the image
+# (see chat-message-service/docker/Dockerfile).
+migrate:
+  enabled: true
+  command:
+    - sh
+    - -c
+    - /app/migrate -path /app/migrations -database "$DATABASE_URL" up
+
+readinessProbe:
+  tcpSocket:
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 5
+livenessProbe:
+  tcpSocket:
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 10
+
 resources:
   requests:
     cpu: "50m"

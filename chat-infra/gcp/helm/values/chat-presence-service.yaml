@@ -19,6 +19,19 @@ secretEnv:
   - envName: DATABASE_URL
     secretKey: db-url-presence
 
+readinessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 5
+livenessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 10
+
 resources:
   requests:
     cpu: "50m"
