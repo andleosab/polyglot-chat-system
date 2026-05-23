@@ -10,9 +10,12 @@ javaToolOptions: "-Xms64m -Xmx256m"
 env:
   - name: SERVER_PORT
     value: "8080"
-  - name: db.url
+  # Spring's relaxed binding maps DB_URL → property db.url etc., so application.yaml's
+  # ${db.url} placeholders still resolve. Using underscored names sidesteps the kubelet
+  # env-var-name validator, which rejects dots by default on GKE < 1.34.
+  - name: DB_URL
     value: "jdbc:postgresql://postgres.chat.svc.cluster.local:5432/chat-user"
-  - name: db.username
+  - name: DB_USERNAME
     value: "postgres"
   - name: KAFKA_BOOTSTRAP
     value: "redpanda.chat.svc.cluster.local:9092"
@@ -21,8 +24,21 @@ secretName: chat-secrets
 secretEnv:
   - envName: JWT_SECRET
     secretKey: jwt-secret
-  - envName: db.password
+  - envName: DB_PASSWORD
     secretKey: postgres-password
+
+readinessProbe:
+  httpGet:
+    path: /user/actuator/health
+    port: http
+  initialDelaySeconds: 20
+  periodSeconds: 5
+livenessProbe:
+  httpGet:
+    path: /user/actuator/health
+    port: http
+  initialDelaySeconds: 60
+  periodSeconds: 10
 
 resources:
   requests:

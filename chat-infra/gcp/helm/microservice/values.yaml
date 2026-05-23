@@ -21,6 +21,21 @@ secretEnv: []
 # Set for JVM services to bound heap (avoids OOM on the shared e2-medium node)
 javaToolOptions: ""
 
+# Optional init-container that reuses the main image (for DB migrations etc).
+# Inherits env + secretEnv from this values file.
+migrate:
+  enabled: false
+  command: []
+  # example:
+  # command:
+  #   - sh
+  #   - -c
+  #   - /app/migrate -path /app/migrations -database "$DATABASE_URL" up
+
+# Probes — empty by default, override per service.
+livenessProbe: {}
+readinessProbe: {}
+
 resources:
   requests:
     cpu: "100m"

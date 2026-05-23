@@ -24,6 +24,11 @@ spec:
           env:
             - name: POSTGRES_PASSWORD
               value: {{ .Values.postgresPassword | quote }}
+            # Mount sits on an ext4 PD which always has a lost+found/ at the root,
+            # and Postgres refuses to initdb into a non-empty directory. Putting
+            # PGDATA in a subdirectory lets initdb run on a fresh disk.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
           volumeMounts:
             - name: data
               mountPath: /var/lib/postgresql/data

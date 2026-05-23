@@ -12,6 +12,8 @@ env:
     value: "8080"
   - name: KAFKA_BOOTSTRAP
     value: "redpanda.chat.svc.cluster.local:9092"
+  - name: MESSAGE_SERVICE_URL
+    value: "http://chat-message-service.chat.svc.cluster.local:8080/messaging/conversations"
   - name: PRESENCE_SERVICE_HOST
     value: "chat-presence-service.chat.svc.cluster.local"
   - name: PRESENCE_SERVICE_GRPC_PORT
@@ -23,6 +25,17 @@ secretEnv:
     secretKey: jwt-jwk
   - envName: JWT_SECRET
     secretKey: jwt-secret
+
+readinessProbe:
+  tcpSocket:
+    port: http
+  initialDelaySeconds: 15
+  periodSeconds: 5
+livenessProbe:
+  tcpSocket:
+    port: http
+  initialDelaySeconds: 45
+  periodSeconds: 10
 
 resources:
   requests:
