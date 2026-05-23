@@ -26,6 +26,7 @@ terraform/
   namespaces.tf               # chat namespace + shared K8s Secret (chat-secrets)
   helm_releases.tf            # intentionally empty — see file for explanation
   budget.tf                   # $1 budget alert (fires even while $300 trial credit drains)
+  terraform.tfvars.example    # template — copy to terraform.tfvars and fill in secrets
 
 helm/
   microservice/               # generic chart reused by all 5 microservices
@@ -91,10 +92,11 @@ POSTGRES_PASSWORD=<same as terraform.tfvars> ./deploy-infra-services.sh
 # 8. Get the node's external IP and update BETTER_AUTH_URL
 kubectl get nodes -o wide
 # Edit helm/values/chat-web.yaml — replace REPLACE_WITH_NODE_EXTERNAL_IP
-# Then trigger a deploy via: git commit --allow-empty -m "trigger deploy" && git push
+# Commit and push the change to main — this triggers Deploy chat-web automatically
 
-# 9. Microservices deploy automatically via GitHub Actions on push to main
-#    Or trigger manually: Actions → Build and Deploy → Run workflow
+# 9. First-time microservice bootstrap (path filters won't fire on a fresh cluster)
+#    Go to Actions → select each "Deploy <service>" workflow → Run workflow
+#    After first run, path-based triggers handle redeployment automatically
 
 # 10. Access the app
 open http://<EXTERNAL-IP>:30080
@@ -127,7 +129,7 @@ Add these secrets in repo Settings → Secrets and variables → Actions:
 | `GCP_PROJECT_ID` | Your GCP project ID |
 | `GCP_SA_KEY` | JSON key for a service account with **Artifact Registry Writer** + **GKE Developer** roles |
 
-The workflow (`.github/workflows/build-images.yml`) builds each service image and deploys it via `helm upgrade --install` on every push to `main`. Each service deploys independently in parallel.
+There is one workflow per service under `.github/workflows/deploy-<service>.yml`. Each workflow triggers on push to `main` when its own service directory, its Helm values file, or the shared microservice chart changes. Use `workflow_dispatch` (Actions → select workflow → Run workflow) for the first-time bootstrap or to force a redeploy without a code change.
 
 ## Architecture decisions
 
