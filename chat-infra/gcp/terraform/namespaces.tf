@@ -1,4 +1,4 @@
-resource "kubernetes_namespace" "chat" {
+resource "kubernetes_namespace_v1" "chat" {
   metadata {
     name = "chat"
   }
@@ -6,10 +6,10 @@ resource "kubernetes_namespace" "chat" {
 }
 
 # Shared secrets referenced by all service deployments
-resource "kubernetes_secret" "chat_secrets" {
+resource "kubernetes_secret_v1" "chat_secrets" {
   metadata {
     name      = "chat-secrets"
-    namespace = kubernetes_namespace.chat.metadata[0].name
+    namespace = kubernetes_namespace_v1.chat.metadata[0].name
   }
 
   data = {
