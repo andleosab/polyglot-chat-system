@@ -17,7 +17,7 @@ Layers: `vpc/` → `iam/` → `compute/` → `data/`
 
 ## Mandatory Patterns
 
-**Labels** (every resource):
+**Labels** (every resource — merge, don't replace):
 ```hcl
 locals {
   common_labels = {
@@ -26,14 +26,18 @@ locals {
     layer       = basename(path.cwd)
   }
 }
+
+# usage
+labels = merge(local.common_labels, { component = "message-svc" })
 ```
 
 **Naming**: `${project_id}-${environment}-${component}` → `myapp-dev-message-svc`
+Caveat: GCP service account `account_id` is capped at 30 chars — shorten `component` or drop `project_id` for SA names.
 
 **Variable validation**:
 ```hcl
 validation {
-  condition     = contains(["us-central1", "us-west1", "northamerica-northeast1"], var.region)
+  condition     = contains(["us-central1", "us-west1", "us-east1"], var.region)
   error_message = "Region must be one of the approved GCP regions."
 }
 
@@ -51,7 +55,8 @@ validation {
 
 - ❌ Never: `roles/owner`, `roles/editor`, `roles/viewer`
 - ❌ Never: `google_service_account_key`
-- ❌ Never: `google_project_iam_binding` (overwrites existing members)
+- ❌ Never: `google_project_iam_binding` (overwrites existing members for a role)
+- ❌ Never: `google_project_iam_policy` (overwrites the entire project policy)
 - ✓ Always: `google_project_iam_member` (additive)
 - ✓ Always: dedicated service account per component
 - ✓ Always: GKE Workload Identity — no key files
