@@ -1,0 +1,69 @@
+name: Deploy chat-delivery-service
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'chat-delivery-service/**'
+      - 'chat-infra/gcp/helm/values/chat-delivery-service.yaml'
+      - 'chat-infra/gcp/helm/microservice/**'
+  workflow_dispatch:
+
+env:
+  REGISTRY: us-west1-docker.pkg.dev
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REPO: chat-demo
+  SERVICE: chat-delivery-service
+
+jobs:
+  deploy:
+    name: Build and Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGISTRY }} --quiet
+
+      - name: Set image tag
+        id: tag
+        run: echo "tag=${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: chat-delivery-service
+          file: chat-delivery-service/src/main/docker/Dockerfile.jvm.builder
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPO }}/${{ env.SERVICE }}:${{ steps.tag.outputs.tag }}
+            ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPO }}/${{ env.SERVICE }}:latest
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: "3.14.0"
+
+      - name: Get GKE credentials
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: chat-demo
+          location: us-west1-a
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Deploy
+        run: |
+          helm upgrade --install ${{ env.SERVICE }} \
+            ./chat-infra/gcp/helm/microservice \
+            -f ./chat-infra/gcp/helm/values/${{ env.SERVICE }}.yaml \
+            --set image.repository=${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPO }}/${{ env.SERVICE }} \
+            --set image.tag=${{ steps.tag.outputs.tag }} \
+            --namespace chat \
+            --wait \
+            --timeout 5m

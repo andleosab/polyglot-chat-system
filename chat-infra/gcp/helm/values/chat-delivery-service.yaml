@@ -1,0 +1,33 @@
+image:
+  repository: ""  # set via --set image.repository=... in CI
+  tag: "latest"
+
+service:
+  port: 8080
+
+javaToolOptions: "-Xms64m -Xmx256m"
+
+env:
+  - name: HTTP_PORT
+    value: "8080"
+  - name: KAFKA_BOOTSTRAP
+    value: "redpanda.chat.svc.cluster.local:9092"
+  - name: PRESENCE_SERVICE_HOST
+    value: "chat-presence-service.chat.svc.cluster.local"
+  - name: PRESENCE_SERVICE_GRPC_PORT
+    value: "50051"
+
+secretName: chat-secrets
+secretEnv:
+  - envName: JWT_JWK
+    secretKey: jwt-jwk
+  - envName: JWT_SECRET
+    secretKey: jwt-secret
+
+resources:
+  requests:
+    cpu: "100m"
+    memory: "256Mi"
+  limits:
+    cpu: "500m"
+    memory: "350Mi"

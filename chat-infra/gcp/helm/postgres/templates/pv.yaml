@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: postgres-pv
+spec:
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  csi:
+    driver: pd.csi.storage.gke.io
+    volumeHandle: "projects/{{ .Values.gcpProjectId }}/zones/us-west1-a/disks/chat-demo-postgres"
+    fsType: ext4
+  claimRef:
+    name: postgres-pvc
+    namespace: {{ .Release.Namespace }}

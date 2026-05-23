@@ -1,0 +1,14 @@
+image:
+  repository: redpandadata/redpanda
+  tag: "v24.1.2"
+  pullPolicy: IfNotPresent
+
+gcpProjectId: ""
+
+resources:
+  requests:
+    cpu: "250m"
+    memory: "700Mi"
+  limits:
+    cpu: "1000m"
+    memory: "700Mi"

@@ -1,0 +1,5 @@
+apiVersion: v2
+name: microservice
+description: Generic chart for chat-demo microservices
+type: application
+version: 0.1.0

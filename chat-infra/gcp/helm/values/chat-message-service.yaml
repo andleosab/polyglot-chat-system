@@ -1,0 +1,31 @@
+image:
+  repository: ""  # set via --set image.repository=... in CI
+  tag: "latest"
+
+service:
+  port: 8080
+
+env:
+  - name: HTTP_PORT
+    value: "8080"
+  - name: KAFKA_BROKERS
+    value: "redpanda.chat.svc.cluster.local:9092"
+  - name: JWT_ISSUER
+    value: "chat-web,chat-delivery-service"
+  - name: JWT_AUDIENCE
+    value: "chat-message-service"
+
+secretName: chat-secrets
+secretEnv:
+  - envName: JWT_SECRET
+    secretKey: jwt-secret
+  - envName: DATABASE_URL
+    secretKey: db-url-message
+
+resources:
+  requests:
+    cpu: "50m"
+    memory: "64Mi"
+  limits:
+    cpu: "300m"
+    memory: "128Mi"

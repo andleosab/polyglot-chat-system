@@ -59,12 +59,11 @@ Access at `http://localhost` (Nginx on :80).
 
 See [chat-infra/README.md](chat-infra/README.md). Two modes: persistent (`~/docker-volumes/`) and ephemeral (no mounts, used by `compose-up.sh`). Nginx routes `/chat/` to `chat-delivery` with WS upgrade headers; everything else goes to `chat-web`.
 
-Three databases on shared Postgres: `chat-auth` (Better Auth), `chat-user` (Spring Boot), `chat-message` (Go migrations).
+Four databases on shared Postgres: `chat-auth` (Better Auth), `chat-user` (Spring Boot), `chat-message` (Go migrations), `chat-presence` (FastAPI/asyncpg).
 
 ## Known scaffolding (not yet wired)
 
 - `chat-message-service/internal/grpc/` — gRPC stubs; `GET /conversations/ids` REST endpoint is the current substitute
-- `chat-user-service` Spring Integration deps — planned `UserCreated` Kafka event
 - `chat-user-service` `PaginatedResponse<T>` — present but not wired to any endpoint
 - `TODO` / `REVISIT` comments in the code are intentional evolution markers
 

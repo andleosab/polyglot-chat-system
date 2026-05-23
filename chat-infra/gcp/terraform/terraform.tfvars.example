@@ -1,0 +1,6 @@
+project_id         = ""   # GCP project ID (e.g. my-project-123)
+billing_account    = ""   # XXXXXX-XXXXXX-XXXXXX
+jwt_secret         = ""   # shared HMAC-SHA256 secret used by all services
+jwt_jwk            = ""   # base64url-encoded version of jwt_secret (required by Quarkus SmallRye)
+postgres_password  = ""   # postgres superuser password
+better_auth_secret = ""   # Better Auth session signing secret
