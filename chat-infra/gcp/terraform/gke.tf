@@ -13,6 +13,11 @@ resource "google_container_cluster" "main" {
     services_secondary_range_name = "services"
   }
 
+  # Pinned explicitly so future GKE default shifts surface in `terraform plan`.
+  release_channel {
+    channel = "REGULAR"
+  }
+
   # Allow destroy without extra confirmation step
   deletion_protection = false
 }
