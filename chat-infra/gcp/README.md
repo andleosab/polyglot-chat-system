@@ -79,7 +79,13 @@ postgres_password  = "<postgres superuser password>"
 better_auth_secret = "<Better Auth session signing secret>"
 EOF
 
-# 5. Apply (provisions GCP resources + namespace + K8s secrets only)
+# 5. Apply in two steps — kubernetes provider can't connect until the cluster exists
+#    Step 5a: create cluster (Terraform auto-includes VPC + subnet as dependencies)
+terraform apply -target=google_container_cluster.main
+
+#    Step 5b: full apply — cluster now exists, kubernetes provider can connect
+#             Creates: node pool, disks, firewall, Artifact Registry, budget,
+#                      chat namespace, chat-secrets K8s Secret
 terraform apply
 
 # 6. Configure kubectl for the new cluster
