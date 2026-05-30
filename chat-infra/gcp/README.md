@@ -53,6 +53,30 @@ helm/
 | Artifact Registry | $0 — under 0.5GB/mo free tier |
 | Budget alert | $1.00 threshold, `EXCLUDE_ALL_CREDITS=true` so it fires during trial period |
 
+## Resource budget
+
+Every workload shares one 4GB `e2-medium`. After GKE system overhead, ~2.9GB is
+schedulable. Memory **request** (what the scheduler must place) and **limit**
+(burst ceiling) per pod:
+
+| Pod | Request | Limit |
+|---|---|---|
+| chat-web | 128Mi | 450Mi |
+| chat-user-service | 256Mi | 350Mi |
+| chat-message-service | 64Mi | 128Mi |
+| chat-delivery-service | 256Mi | 350Mi |
+| chat-presence-service | 128Mi | 256Mi |
+| postgres | 128Mi | 300Mi |
+| redpanda | 700Mi | 700Mi |
+| redis | 32Mi | 64Mi |
+| nginx | 32Mi | 64Mi |
+| **Total** | **~1.7GB** | **~2.6GB** |
+
+Requests (~1.7GB) fit the node's ~2.9GB allocatable with headroom for `kube-system`.
+JVM services (`chat-user-service`, `chat-delivery-service`) additionally bound heap via
+`JAVA_TOOL_OPTIONS=-Xms64m -Xmx256m`. Redis is ephemeral (no disk); Redpanda's process
+is capped at 600MB via `--memory=600M`.
+
 ## First-run sequence
 
 ```bash
