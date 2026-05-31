@@ -15,6 +15,7 @@ GCP infrastructure for the polyglot chat demo. Designed to stay within the GCP a
 ```
 bootstrap/
   create-state-bucket.sh      # one-time GCS state bucket setup — run before terraform init
+  create-deploy-sa.sh         # one-time: GitHub Actions deploy SA + roles + JSON key
   deploy-infra-services.sh    # deploy Postgres, Redis, Redpanda, Nginx via Helm
 
 terraform/
@@ -119,19 +120,24 @@ gcloud container clusters get-credentials chat-demo --zone us-west1-a
 cd ../bootstrap
 POSTGRES_PASSWORD=<same as terraform.tfvars> ./deploy-infra-services.sh
 
-# 8. Get the node's external IP and update BETTER_AUTH_URL
+# 8. Create the GitHub Actions deploy service account + key (one time only)
+#    Then add GCP_PROJECT_ID and GCP_SA_KEY as repo secrets — the script prints
+#    the exact commands. CI auth must exist before the first workflow runs.
+./create-deploy-sa.sh
+
+# 9. Get the node's external IP and update BETTER_AUTH_URL
 kubectl get nodes -o wide
 # Edit helm/values/chat-web.yaml — replace REPLACE_WITH_NODE_EXTERNAL_IP
 # Commit and push the change to main — this triggers Deploy chat-web automatically
 
-# 9. First-time microservice bootstrap (path filters won't fire on a fresh cluster)
+# 10. First-time microservice bootstrap (path filters won't fire on a fresh cluster)
 #    Go to Actions → select each "Deploy <service>" workflow → Run workflow
 #    After first run, path-based triggers handle redeployment automatically
 
-# 10. Access the app
+# 11. Access the app
 open http://<EXTERNAL-IP>:30080
 
-# 11. Tear down when done (disks are retained — data survives)
+# 12. Tear down when done (disks are retained — data survives)
 terraform destroy
 ```
 
@@ -152,12 +158,23 @@ kubectl port-forward svc/chat-presence-service 8000:8000 -n chat
 
 ## GitHub Actions setup
 
-Add these secrets in repo Settings → Secrets and variables → Actions:
+The deploy workflows authenticate to GCP with a service account key. Create the
+service account, bind its roles, and generate the key with the one-time bootstrap
+script (requires an account with `roles/iam.serviceAccountAdmin` +
+`roles/resourcemanager.projectIamAdmin`, e.g. the project owner):
+
+```bash
+cd chat-infra/gcp/bootstrap
+./create-deploy-sa.sh
+```
+
+The script prints the exact `gh secret set` commands (or UI values) for the two
+secrets it produces:
 
 | Secret | Value |
 |---|---|
 | `GCP_PROJECT_ID` | Your GCP project ID |
-| `GCP_SA_KEY` | JSON key for a service account with **Artifact Registry Writer** + **GKE Developer** roles |
+| `GCP_SA_KEY` | Contents of `gha-key.json` — a service account with **Artifact Registry Writer** + **GKE Developer** roles |
 
 There is one workflow per service under `.github/workflows/deploy-<service>.yml`. Each workflow triggers on push to `main` when its own service directory, its Helm values file, or the shared microservice chart changes. Use `workflow_dispatch` (Actions → select workflow → Run workflow) for the first-time bootstrap or to force a redeploy without a code change.
 
