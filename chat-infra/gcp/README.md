@@ -78,6 +78,42 @@ JVM services (`chat-user-service`, `chat-delivery-service`) additionally bound h
 `JAVA_TOOL_OPTIONS=-Xms64m -Xmx256m`. Redis is ephemeral (no disk); Redpanda's process
 is capped at 600MB via `--memory=600M`.
 
+## Pre-apply setup (fresh project only)
+
+On a brand-new GCP project, `terraform apply` will fail partway through unless
+these are done first. Both cause a *partial* apply — cluster/disks/networks
+succeed, then the budget resource errors out.
+
+**1. Enable the APIs the apply touches.** `billingbudgets.googleapis.com` is
+**not** enabled by default and there is no `google_project_service` resource to
+enable it, so the budget resource hard-fails without this:
+
+```bash
+gcloud services enable \
+  container.googleapis.com \
+  compute.googleapis.com \
+  artifactregistry.googleapis.com \
+  billingbudgets.googleapis.com \
+  --project=<YOUR_PROJECT_ID>
+```
+
+`compute`/`container` self-enable on first use, but enabling all four up-front is
+faster and avoids one-time race warnings.
+
+**2. Confirm your identity can create the budget.** `google_billing_budget`
+needs `roles/billing.user` or `roles/billing.costsManager` on the **billing
+account** (not the project) — fresh service-account setups usually lack it:
+
+```bash
+gcloud beta billing accounts get-iam-policy <BILLING_ACCOUNT_ID> --format=json \
+  | jq '.bindings[] | select(.members[] | contains("<your-identity>"))'
+```
+
+If empty, grant one of those roles on the billing account before applying.
+
+> Budget alerts have no notification channel configured, so on threshold breach
+> GCP emails the billing-admin address only (no Slack/SMS). This is expected.
+
 ## First-run sequence
 
 ```bash
