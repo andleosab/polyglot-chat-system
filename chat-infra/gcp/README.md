@@ -101,18 +101,32 @@ gcloud services enable \
 faster and avoids one-time race warnings.
 
 **2. Confirm your identity can create the budget.** `google_billing_budget`
-needs `roles/billing.user` or `roles/billing.costsManager` on the **billing
-account** (not the project) — fresh service-account setups usually lack it:
+needs the `billing.budgets.create` permission on the **billing account** (not the
+project) — granted by `roles/billing.costsManager` (least-privilege) or
+`roles/billing.admin`. Note that `roles/billing.user` is **not** enough (it only
+covers project↔billing-account association). Fresh service-account setups usually
+lack all of these:
 
 ```bash
 gcloud beta billing accounts get-iam-policy <BILLING_ACCOUNT_ID> --format=json \
   | jq '.bindings[] | select(.members[] | contains("<your-identity>"))'
 ```
 
-If empty, grant one of those roles on the billing account before applying.
+If missing, grant `roles/billing.costsManager` on the billing account before
+applying (the grantor needs `roles/billing.admin`, e.g. the account owner):
+
+```bash
+gcloud billing accounts add-iam-policy-binding <BILLING_ACCOUNT_ID> \
+  --member='user:you@example.com' \
+  --role='roles/billing.costsManager'
+```
+
+Or via the Console: **Billing → <account> → Account management → Add principal →
+role "Billing Account Costs Manager"**.
 
 > Budget alerts have no notification channel configured, so on threshold breach
-> GCP emails the billing-admin address only (no Slack/SMS). This is expected.
+> GCP emails the Billing Account Administrators and Users by default (no
+> Slack/SMS). This is expected.
 
 ## First-run sequence
 
