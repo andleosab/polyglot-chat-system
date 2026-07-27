@@ -21,7 +21,7 @@ bootstrap/
 terraform/
   providers.tf                # GCS backend, google/kubernetes providers
   variables.tf                # input variables (secrets via terraform.tfvars)
-  gke.tf                      # GKE Standard cluster + e2-medium Spot node pool + Artifact Registry
+  gke.tf                      # GKE Standard cluster + e2-standard-2 Spot node pool + Artifact Registry
   vpc.tf                      # VPC, subnet, firewall (NodePort 30080 only)
   disks.tf                    # pre-provisioned pd-standard disks: Postgres (5GB) + Redpanda (5GB)
   namespaces.tf               # chat namespace + shared K8s Secret (chat-secrets)
@@ -48,7 +48,7 @@ helm/
 | Resource | Cost |
 |---|---|
 | GKE cluster management fee | $0 — covered by GKE $74.40/mo credit |
-| e2-medium Spot node | ~$12/mo — absorbed by $300 new-account credit |
+| e2-standard-2 Spot node | ~$15/mo (approximate — check the billing console) — absorbed by the trial credit |
 | 30GB pd-standard disks (20GB boot + 5GB Postgres + 5GB Redpanda) | $0 — always-free cap |
 | GCS state bucket | $0 — state file is a few KB, well under 5GB always-free cap |
 | Artifact Registry | $0 — under 0.5GB/mo free tier |
@@ -56,25 +56,59 @@ helm/
 
 ## Resource budget
 
-Every workload shares one 4GB `e2-medium`. After GKE system overhead, ~2.9GB is
-schedulable. Memory **request** (what the scheduler must place) and **limit**
-(burst ceiling) per pod:
+Every workload shares one 8GB `e2-standard-2`. **Budget both CPU and memory** — the
+scheduler refuses a pod if *either* request can't be met, and CPU is the tighter of the
+two here.
 
-| Pod | Request | Limit |
+| Pod | CPU request | Memory request | Memory limit |
+|---|---|---|---|
+| chat-web | 100m | 128Mi | 450Mi |
+| chat-user-service | 100m | 256Mi | 350Mi |
+| chat-message-service | 50m | 64Mi | 128Mi |
+| chat-delivery-service | 100m | 256Mi | 350Mi |
+| chat-presence-service | 50m | 128Mi | 256Mi |
+| postgres | 100m | 128Mi | 300Mi |
+| redpanda | 250m | 700Mi | 700Mi |
+| redis | 50m | 32Mi | 64Mi |
+| nginx | 50m | 32Mi | 64Mi |
+| **Total** | **850m** | **~1.7GB** | **~2.6GB** |
+
+### Budget against allocatable minus system overhead
+
+Never size against the machine's advertised specs. Two deductions come first:
+
+| | CPU | Memory |
 |---|---|---|
-| chat-web | 128Mi | 450Mi |
-| chat-user-service | 256Mi | 350Mi |
-| chat-message-service | 64Mi | 128Mi |
-| chat-delivery-service | 256Mi | 350Mi |
-| chat-presence-service | 128Mi | 256Mi |
-| postgres | 128Mi | 300Mi |
-| redpanda | 700Mi | 700Mi |
-| redis | 32Mi | 64Mi |
-| nginx | 32Mi | 64Mi |
-| **Total** | **~1.7GB** | **~2.6GB** |
+| Machine | 2000m | 8GB |
+| Node allocatable (after GKE's reserve) | ~1930m | ~6.1GB |
+| GKE system pods (measured) | ~753m | ~1.04GB |
+| **Left for this stack** | **~1180m** | **~5GB** |
+| Stack requests | 850m | ~1.7GB |
 
-Requests (~1.7GB) fit the node's ~2.9GB allocatable with headroom for `kube-system`.
-JVM services (`chat-user-service`, `chat-delivery-service`) additionally bound heap via
+The ~753m of system overhead is roughly **fixed regardless of workload** and dominated
+by `kube-dns` (270m), which no application can do without. Logging and monitoring
+agents (`fluentbit` 105m, `kube-state-metrics` 105m, `metrics-server` 43m,
+`gke-metrics-agent` 21m) account for most of the rest. Verify on a live node with:
+
+```bash
+kubectl describe node | grep -A30 "Non-terminated Pods"
+```
+
+> ### ⚠️ Do not switch to `e2-medium` to save money
+>
+> It looks like a 2 vCPU machine and is advertised as one, but it is **shared-core
+> burstable**: 2 vCPU of *burst* on a 1 vCPU *baseline*, and GKE derives allocatable
+> from the baseline. A GKE `e2-medium` offers **940m**, not ~1930m — and after the
+> ~753m of system overhead, only ~187m remains for a stack that requests 850m.
+>
+> This is not theoretical. The cluster ran on `e2-medium` initially and `redpanda`
+> (250m, the largest single request) sat `Pending` with `0/1 nodes are available:
+> 1 Insufficient cpu` while every pod already placed looked perfectly healthy. Memory
+> was never the constraint — it sat at 43%.
+
+CPU requests gate scheduling and set relative shares under contention; they do not cap
+usage (limits do), so the values above are reservations rather than ceilings. JVM
+services (`chat-user-service`, `chat-delivery-service`) additionally bound heap via
 `JAVA_TOOL_OPTIONS=-Xms64m -Xmx256m`. Redis is ephemeral (no disk); Redpanda's process
 is capped at 600MB via `--memory=600M`.
 
@@ -240,7 +274,7 @@ terraform destroy
 
 ## The node IP is ephemeral — expect it to change
 
-The node pool runs a **single Spot `e2-medium`** (`gke.tf`), chosen deliberately for
+The node pool runs a **single Spot `e2-standard-2`** (`gke.tf`), chosen deliberately for
 cost (see ADR-0005). Spot nodes are reclaimable: GCP can preempt the node at any
 time, and GKE replaces it. The replacement comes back with a **new external IP**.
 

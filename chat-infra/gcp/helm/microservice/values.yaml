@@ -18,7 +18,7 @@ secretEnv: []
 # - envName: JWT_SECRET
 #   secretKey: jwt-secret
 
-# Set for JVM services to bound heap (avoids OOM on the shared e2-medium node)
+# Set for JVM services to bound heap (avoids OOM on the single shared node)
 javaToolOptions: ""
 
 # Optional init-container that reuses the main image (for DB migrations etc).

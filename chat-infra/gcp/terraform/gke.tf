@@ -30,12 +30,18 @@ resource "google_container_node_pool" "main" {
   node_count = 1
 
   node_config {
-    machine_type = "e2-medium"
+    # e2-standard-2 has 2 DEDICATED vCPU (~1930m allocatable). Do not "downgrade" to
+    # e2-medium to save cost: it is a shared-core burstable type — 2 vCPU of burst on a
+    # 1 vCPU baseline — and GKE derives allocatable from the baseline, giving only 940m.
+    # GKE's own system pods request ~753m of that, leaving ~187m for a stack that needs
+    # 850m. See the resource budget in ../README.md.
+    machine_type = "e2-standard-2"
     disk_size_gb = 20
     disk_type    = "pd-standard"
     image_type   = "COS_CONTAINERD"
 
-    # Spot pricing reduces node cost to ~$12/mo
+    # Spot pricing keeps the node to roughly a third of on-demand (~$15/mo at the time
+    # of writing — approximate; check the billing console for the current rate)
     spot = true
 
     oauth_scopes = [
