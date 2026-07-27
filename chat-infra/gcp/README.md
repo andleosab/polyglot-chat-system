@@ -204,15 +204,12 @@ gcloud container clusters get-credentials chat-demo --zone us-west1-a
 cd ../bootstrap
 POSTGRES_PASSWORD=<same as terraform.tfvars> ./deploy-infra-services.sh
 
-# 8. Create the GitHub Actions deploy service account + key (one time only)
-#    Then add GCP_PROJECT_ID and GCP_SA_KEY as repo secrets — the script prints
-#    the exact commands. CI auth must exist before the first workflow runs.
-#    Not idempotent: if the SA already exists the script aborts before granting
-#    roles or writing the key. To re-run, delete the SA first:
-#      gcloud iam service-accounts delete github-actions@<PROJECT_ID>.iam.gserviceaccount.com
+# 8. Create the GitHub Actions deploy service account + Workload Identity Federation
+#    No key file is created — workflows authenticate with a short-lived OIDC token.
+#    Safe to re-run; every step skips work that already exists.
 ./create-deploy-sa.sh
-# Delete gha-key.json once the secrets are set — it is a live private key
-# (gitignored, but it should not linger on disk)
+#    Then add the three repo secrets the script prints (GCP_PROJECT_ID,
+#    GCP_SA_EMAIL, GCP_WIF_PROVIDER). CI auth must exist before the first run.
 
 # 9. Get the node's external IP and point chat-web at it
 kubectl get nodes -o wide
@@ -272,9 +269,13 @@ kubectl port-forward svc/chat-presence-service 8000:8000 -n chat
 
 ## GitHub Actions setup
 
-The deploy workflows authenticate to GCP with a service account key. Create the
-service account, bind its roles, and generate the key with the one-time bootstrap
-script (requires an account with `roles/iam.serviceAccountAdmin` +
+The deploy workflows authenticate to GCP with **Workload Identity Federation** — no
+service-account key is created, downloaded, or stored. Each workflow run mints a
+short-lived OIDC token from GitHub and exchanges it for GCP credentials, so there is
+no long-lived secret to leak, rotate, or accidentally commit.
+
+Create the service account, bind its roles, and wire up the identity pool with the
+one-time bootstrap script (requires an account with `roles/iam.serviceAccountAdmin` +
 `roles/resourcemanager.projectIamAdmin`, e.g. the project owner):
 
 ```bash
@@ -282,13 +283,26 @@ cd chat-infra/gcp/bootstrap
 ./create-deploy-sa.sh
 ```
 
-The script prints the exact `gh secret set` commands (or UI values) for the two
-secrets it produces:
+The script is idempotent — re-running it skips anything that already exists. It prints
+the exact `gh secret set` commands (or UI values) for the three secrets it produces:
 
 | Secret | Value |
 |---|---|
 | `GCP_PROJECT_ID` | Your GCP project ID |
-| `GCP_SA_KEY` | Contents of `gha-key.json` — a service account with **Artifact Registry Writer** + **GKE Developer** roles |
+| `GCP_SA_EMAIL` | `github-actions@<PROJECT_ID>.iam.gserviceaccount.com` — holds **Artifact Registry Writer** + **GKE Developer** |
+| `GCP_WIF_PROVIDER` | Full provider resource path, `projects/<NUMBER>/locations/global/workloadIdentityPools/github/providers/github` |
+
+**How access is restricted.** The pool trusts GitHub's OIDC issuer, which by itself
+would let *any* repo on GitHub request a token. Two things narrow it to yours: the
+provider's `--attribute-condition` pins `assertion.repository_owner`, and the
+`roles/iam.workloadIdentityUser` binding uses a `principalSet://` scoped to the exact
+`owner/repo`. Both must match before a token is honoured. The script derives the repo
+from your `origin` remote — override with `GITHUB_REPO=owner/name ./create-deploy-sa.sh`
+if that's wrong (e.g. on a fork).
+
+Each workflow declares `permissions: id-token: write` so the runner may request the
+OIDC token, plus `contents: read` for `actions/checkout` — declaring `permissions`
+explicitly drops everything not listed, so both are required.
 
 There is one workflow per service under `.github/workflows/deploy-<service>.yml`. Each workflow triggers on push to `main` when its own service directory, its Helm values file, or the shared microservice chart changes. Use `workflow_dispatch` (Actions → select workflow → Run workflow) for the first-time bootstrap or to force a redeploy without a code change.
 
