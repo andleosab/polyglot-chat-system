@@ -12,8 +12,10 @@ terraform {
   }
 
   backend "gcs" {
-    # Fill in after running bootstrap/create-state-bucket.sh
-    bucket = "<PROJECT_ID>-tf-state"
+    # Bucket is supplied at init time, not hardcoded — keeps the project-specific
+    # name out of version control. After running bootstrap/create-state-bucket.sh,
+    # init with your real bucket name:
+    #   terraform init -backend-config="bucket=<YOUR_PROJECT_ID>-tf-state"
     prefix = "chat-demo/state"
   }
 }
