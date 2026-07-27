@@ -26,7 +26,7 @@ terraform/
   disks.tf                    # pre-provisioned pd-standard disks: Postgres (5GB) + Redpanda (5GB)
   namespaces.tf               # chat namespace + shared K8s Secret (chat-secrets)
   helm_releases.tf            # intentionally empty — see file for explanation
-  budget.tf                   # $1 budget alert (fires even while $300 trial credit drains)
+  budget.tf                   # 1-unit budget alert in the billing account's currency (fires while trial credit drains)
   terraform.tfvars.example    # template — copy to terraform.tfvars and fill in secrets
 
 helm/
@@ -52,7 +52,7 @@ helm/
 | 30GB pd-standard disks (20GB boot + 5GB Postgres + 5GB Redpanda) | $0 — always-free cap |
 | GCS state bucket | $0 — state file is a few KB, well under 5GB always-free cap |
 | Artifact Registry | $0 — under 0.5GB/mo free tier |
-| Budget alert | $1.00 threshold, `EXCLUDE_ALL_CREDITS=true` so it fires during trial period |
+| Budget alert | 1-unit threshold in the billing account's currency, `EXCLUDE_ALL_CREDITS=true` so it fires during trial period |
 
 ## Resource budget
 
@@ -84,12 +84,15 @@ On a brand-new GCP project, `terraform apply` will fail partway through unless
 these are done first. Both cause a *partial* apply — cluster/disks/networks
 succeed, then the budget resource errors out.
 
-**1. Enable the APIs the apply touches.** `billingbudgets.googleapis.com` is
-**not** enabled by default and there is no `google_project_service` resource to
-enable it, so the budget resource hard-fails without this:
+**1. Enable the APIs the apply touches.** `billingbudgets.googleapis.com` and
+`cloudresourcemanager.googleapis.com` are **not** guaranteed enabled on a fresh
+project, and there is no `google_project_service` resource to enable them — so the
+apply hard-fails without this. (The budget needs Billing Budgets; the budget's
+`google_project` lookup that resolves the project number needs Resource Manager.)
 
 ```bash
 gcloud services enable \
+  cloudresourcemanager.googleapis.com \
   container.googleapis.com \
   compute.googleapis.com \
   artifactregistry.googleapis.com \
