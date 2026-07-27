@@ -21,9 +21,12 @@ spec:
             - containerPort: 80
               name: http
           volumeMounts:
+            # Mounted as a template, not directly into conf.d: the entrypoint's
+            # 20-envsubst-on-templates.sh expands ${NGINX_LOCAL_RESOLVERS} and writes
+            # the result to /etc/nginx/conf.d/default.conf — the same final path.
             - name: nginx-config
-              mountPath: /etc/nginx/conf.d/default.conf
-              subPath: default.conf
+              mountPath: /etc/nginx/templates/default.conf.template
+              subPath: default.conf.template
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       volumes:
