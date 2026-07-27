@@ -150,11 +150,11 @@ gcloud config set project <YOUR_PROJECT_ID>
 # 2. Create the Terraform state bucket (one time only — never re-run)
 cd chat-infra/gcp/bootstrap
 ./create-state-bucket.sh
-# Then update the bucket name in terraform/providers.tf
+# The script prints the bucket name (<YOUR_PROJECT_ID>-tf-state) for the next step
 
-# 3. Init Terraform
+# 3. Init Terraform — the bucket is passed here, not hardcoded in providers.tf
 cd ../terraform
-terraform init
+terraform init -backend-config="bucket=<YOUR_PROJECT_ID>-tf-state"
 
 # 4. Create terraform.tfvars (gitignored — never commit this)
 cat > terraform.tfvars <<EOF

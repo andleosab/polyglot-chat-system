@@ -21,5 +21,5 @@ gcloud storage buckets create "gs://${BUCKET_NAME}" \
 gcloud storage buckets update "gs://${BUCKET_NAME}" --versioning
 
 echo ""
-echo "Done. Update the backend block in terraform/providers.tf:"
-echo "  bucket = \"${BUCKET_NAME}\""
+echo "Done. Initialize Terraform with this bucket (do not hardcode it in providers.tf):"
+echo "  terraform init -backend-config=\"bucket=${BUCKET_NAME}\""
