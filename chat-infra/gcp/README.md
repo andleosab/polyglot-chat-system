@@ -208,8 +208,13 @@ POSTGRES_PASSWORD=<same as terraform.tfvars> ./deploy-infra-services.sh
 #    No key file is created — workflows authenticate with a short-lived OIDC token.
 #    Safe to re-run; every step skips work that already exists.
 ./create-deploy-sa.sh
-#    Then add the three repo secrets the script prints (GCP_PROJECT_ID,
-#    GCP_SA_EMAIL, GCP_WIF_PROVIDER). CI auth must exist before the first run.
+#    The script prints three ready-to-paste commands — run them to store the values
+#    as GitHub Actions repo secrets (or add them by hand at:
+#    repo Settings -> Secrets and variables -> Actions -> New repository secret):
+#      gh secret set GCP_PROJECT_ID   --body "<printed value>"
+#      gh secret set GCP_SA_EMAIL     --body "<printed value>"
+#      gh secret set GCP_WIF_PROVIDER --body "<printed value>"
+#    These live on the GitHub repo, not in GCP. CI auth must exist before step 10.
 
 # 9. Get the node's external IP and point chat-web at it
 kubectl get nodes -o wide
