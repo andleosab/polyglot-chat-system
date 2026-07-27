@@ -14,6 +14,15 @@ spec:
       labels:
         app: redpanda
     spec:
+      # The PD's root dir is root:root and this image runs unprivileged, so it cannot
+      # create pid.lock in the mount:
+      #   application.cc:470 - Failure during startup: system:13, open: Permission denied
+      # postgres/redis avoid this because their images start as root and chown the data
+      # dir via gosu before dropping privileges; redpanda's never runs as root. fsGroup
+      # makes the kubelet chown the volume to this gid AND add it to the process's
+      # supplementary groups, so the two agree without hardcoding the image's uid.
+      securityContext:
+        fsGroup: 101
       containers:
         - name: redpanda
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
