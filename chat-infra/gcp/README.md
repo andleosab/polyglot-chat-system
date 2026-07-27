@@ -100,6 +100,16 @@ gcloud services enable \
 `compute`/`container` self-enable on first use, but enabling all four up-front is
 faster and avoids one-time race warnings.
 
+> **The budget also needs a quota project.** `billingbudgets.googleapis.com` bills
+> API quota to a project via the `X-Goog-User-Project` header. Under user ADC that
+> header is unset by default, so the call falls back to a Google-owned project and
+> fails with a misleading `SERVICE_DISABLED` 403 (the error's `consumer` field
+> points at a project number that isn't yours). `providers.tf` sets
+> `user_project_override = true` + `billing_project = var.project_id` so Terraform
+> always sends your project — no manual step needed. Note that `gcloud auth
+> application-default set-quota-project` fixes this for the gcloud CLI but **not**
+> for Terraform, which ignores the ADC quota-project field.
+
 **2. Confirm your identity can create the budget.** `google_billing_budget`
 needs the `billing.budgets.create` permission on the **billing account** (not the
 project) — granted by `roles/billing.costsManager` (least-privilege) or
@@ -131,8 +141,10 @@ role "Billing Account Costs Manager"**.
 ## First-run sequence
 
 ```bash
-# 1. Authenticate and set project
-gcloud auth login
+# 1. Authenticate — the gcloud CLI AND Application Default Credentials.
+#    Terraform reads ADC, not the gcloud CLI login, so BOTH are required.
+gcloud auth login                        # authorizes gcloud/gsutil commands
+gcloud auth application-default login    # sets ADC — Terraform authenticates with this
 gcloud config set project <YOUR_PROJECT_ID>
 
 # 2. Create the Terraform state bucket (one time only — never re-run)
