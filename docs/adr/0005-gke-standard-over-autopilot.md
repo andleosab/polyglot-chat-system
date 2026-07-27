@@ -21,3 +21,30 @@ Use **GKE Standard** (zonal, `us-west1-a`) with a single `e2-medium` Spot node.
 - The cluster is intentionally ephemeral: `terraform apply` to start, `terraform destroy` when idle.
 - Spot instances can be preempted by GCP. Pods restart automatically; persistent data is on separate `pd-standard` disks that survive node replacement.
 - Autopilot should be reconsidered if the system ever needs multi-node scale or production SLAs, as it eliminates node management overhead at the cost of higher per-workload pricing.
+
+## Update (2026-07-27): node resized to `e2-standard-2`
+
+The decision above — GKE Standard over Autopilot — stands unchanged. The **machine
+type** in it did not survive first contact.
+
+`e2-medium` could not schedule the stack. It is a **shared-core burstable** type: 2 vCPU
+of *burst* on a 1 vCPU *baseline*, and GKE derives allocatable from the baseline, so the
+node offered **940m** rather than the ~1930m its "2 vCPU" label implies. GKE's own system
+pods request ~753m of that (`kube-dns` alone is 270m), leaving ~187m for a stack
+requesting 850m. `redpanda` (250m, the largest single request) sat `Pending` with
+`0/1 nodes are available: 1 Insufficient cpu`.
+
+Memory was never the constraint — it peaked at 43%. The original sizing was done against
+a memory budget only, which is why this surfaced at deploy time rather than design time.
+
+Now a single **`e2-standard-2`** (2 dedicated vCPU, 8GB): ~1930m allocatable, ~1180m free
+after system overhead, ~330m of headroom. Still Spot, still one node, still one zonal
+cluster, and boot disk unchanged at 20GB so the 30GB always-free disk layout holds.
+
+Reason #4 above ("full control over node sizing") is what made this a one-line fix —
+under Autopilot the per-pod minimums would have driven the same problem into the billing
+model instead.
+
+Superseded figures: reason #3's "~$12/mo" and "$300 new-account credit" were never
+verified and do not match the billing account in use (CAD). See the cost model in
+[`chat-infra/gcp/README.md`](../../chat-infra/gcp/README.md).
