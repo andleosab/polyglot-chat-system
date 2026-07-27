@@ -18,6 +18,12 @@ spec:
         - name: redpanda
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # Flag forms are NOT interchangeable here — mirror docker-compose.yml exactly.
+          # Seastar's own flags (--smp, --memory, --reserve-memory) accept "--flag=value".
+          # Redpanda's own flags do NOT: "--node-id=1" fails with
+          #   Argument parse error: unrecognised option '--node-id=1'
+          # so each must be a separate list item (one argv element per token). Do not
+          # "tidy" these back into --flag=value form.
           command:
             - redpanda
             - start
@@ -25,14 +31,18 @@ spec:
             - --smp=1
             - --memory=600M
             - --reserve-memory=0M
-            - --node-id=1
+            - --node-id
+            - "1"
             - --check=false
-            - --kafka-addr=PLAINTEXT://0.0.0.0:9092
-            - --advertise-kafka-addr=PLAINTEXT://redpanda.{{ .Release.Namespace }}.svc.cluster.local:9092
+            - --kafka-addr
+            - PLAINTEXT://0.0.0.0:9092
+            - --advertise-kafka-addr
+            - PLAINTEXT://redpanda.{{ .Release.Namespace }}.svc.cluster.local:9092
             # Redpanda defaults this to false (unlike Kafka). No service creates its
             # topics programmatically, so without it the first produce to chat.messages
             # fails with UNKNOWN_TOPIC_OR_PARTITION while every pod still reports healthy.
-            - --set redpanda.auto_create_topics_enabled=true
+            - --set
+            - redpanda.auto_create_topics_enabled=true
           ports:
             - containerPort: 9092
               name: kafka
