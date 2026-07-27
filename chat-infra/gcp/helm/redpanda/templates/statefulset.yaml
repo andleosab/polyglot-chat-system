@@ -18,21 +18,23 @@ spec:
         - name: redpanda
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          # Flag forms are NOT interchangeable here — mirror docker-compose.yml exactly.
-          # Seastar's own flags (--smp, --memory, --reserve-memory) accept "--flag=value".
-          # Redpanda's own flags do NOT: "--node-id=1" fails with
-          #   Argument parse error: unrecognised option '--node-id=1'
-          # so each must be a separate list item (one argv element per token). Do not
-          # "tidy" these back into --flag=value form.
-          command:
+          # MUST be args:, not command:. The image ENTRYPOINT is /usr/bin/rpk, and in
+          # Kubernetes command: replaces the ENTRYPOINT — unlike compose, where command:
+          # replaces only CMD. Under command: the "redpanda" below resolves to the C++
+          # broker binary rather than "rpk redpanda", and every rpk flag is rejected:
+          #   cli_parser.cc:46 - Argument parse error: unrecognised option '--node-id'
+          # cli_parser.cc is the broker's own parser; it owns only the seastar flags
+          # (--smp/--memory/--reserve-memory), which is why those parsed and the rest
+          # did not. docker-compose.yml runs these same flags fine because it inherits
+          # the entrypoint.
+          args:
             - redpanda
             - start
             - --overprovisioned
             - --smp=1
             - --memory=600M
             - --reserve-memory=0M
-            - --node-id
-            - "1"
+            # No --node-id: v24.1.2 assigns broker IDs automatically at bootstrap.
             - --check=false
             - --kafka-addr
             - PLAINTEXT://0.0.0.0:9092
