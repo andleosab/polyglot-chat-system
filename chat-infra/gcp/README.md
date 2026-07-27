@@ -78,6 +78,25 @@ JVM services (`chat-user-service`, `chat-delivery-service`) additionally bound h
 `JAVA_TOOL_OPTIONS=-Xms64m -Xmx256m`. Redis is ephemeral (no disk); Redpanda's process
 is capped at 600MB via `--memory=600M`.
 
+## Prerequisites
+
+Install these before starting. The first-run sequence assumes all of them are on `PATH`.
+
+| Tool | Needed for | Check |
+|---|---|---|
+| `gcloud` | Everything — auth, cluster, billing | `gcloud version` |
+| `gke-gcloud-auth-plugin` | Every `kubectl`/`helm` call against GKE | `gke-gcloud-auth-plugin --version` |
+| `terraform` | Steps 3–5 | `terraform version` |
+| `kubectl` | Steps 6, 9 | `kubectl version --client` |
+| `helm` | Step 7 and the deploy workflows | `helm version --short` |
+| `gh` | Step 8, pushing repo secrets (optional — the UI works too) | `gh auth status` |
+| `jq` | The billing-IAM check in pre-apply setup | `jq --version` |
+
+> **`gke-gcloud-auth-plugin` is the one that bites.** Step 6 writes a kubeconfig that
+> references it, so if it's missing every later `kubectl` and `helm` command fails with
+> an opaque credential error rather than a "not installed" message. Install it with
+> `gcloud components install gke-gcloud-auth-plugin`.
+
 ## Pre-apply setup (fresh project only)
 
 On a brand-new GCP project, `terraform apply` will fail partway through unless
@@ -188,16 +207,27 @@ POSTGRES_PASSWORD=<same as terraform.tfvars> ./deploy-infra-services.sh
 # 8. Create the GitHub Actions deploy service account + key (one time only)
 #    Then add GCP_PROJECT_ID and GCP_SA_KEY as repo secrets — the script prints
 #    the exact commands. CI auth must exist before the first workflow runs.
+#    Not idempotent: if the SA already exists the script aborts before granting
+#    roles or writing the key. To re-run, delete the SA first:
+#      gcloud iam service-accounts delete github-actions@<PROJECT_ID>.iam.gserviceaccount.com
 ./create-deploy-sa.sh
+# Delete gha-key.json once the secrets are set — it is a live private key
+# (gitignored, but it should not linger on disk)
 
-# 9. Get the node's external IP and update BETTER_AUTH_URL
+# 9. Get the node's external IP and point chat-web at it
 kubectl get nodes -o wide
-# Edit helm/values/chat-web.yaml — replace REPLACE_WITH_NODE_EXTERNAL_IP
+# Edit helm/values/chat-web.yaml — replace REPLACE_WITH_NODE_EXTERNAL_IP in ALL
+# THREE env vars: BETTER_AUTH_URL, ORIGIN, and PUBLIC_DELIVERY_API_BASE.
+# Missing the third is the easy mistake — the page loads fine and only the
+# WebSocket connect fails.
 # Commit and push the change to main — this triggers Deploy chat-web automatically
 
 # 10. First-time microservice bootstrap (path filters won't fire on a fresh cluster)
 #    Go to Actions → select each "Deploy <service>" workflow → Run workflow
 #    After first run, path-based triggers handle redeployment automatically
+#    Note: chat-web already ran from step 9's push (its path filter covers
+#    helm/values/chat-web.yaml), so dispatching it here runs it a second time.
+#    Harmless — don't read the duplicate run as a failure.
 
 # 11. Access the app
 open http://<EXTERNAL-IP>:30080
@@ -205,6 +235,25 @@ open http://<EXTERNAL-IP>:30080
 # 12. Tear down when done (disks are retained — data survives)
 terraform destroy
 ```
+
+## The node IP is ephemeral — expect it to change
+
+The node pool runs a **single Spot `e2-medium`** (`gke.tf`), chosen deliberately for
+cost (see ADR-0005). Spot nodes are reclaimable: GCP can preempt the node at any
+time, and GKE replaces it. The replacement comes back with a **new external IP**.
+
+Because step 9 bakes that IP into three env vars in `helm/values/chat-web.yaml`, a
+preemption leaves `chat-web` pointing at an address that no longer exists — logins
+fail against the stale `BETTER_AUTH_URL` and the WebSocket never connects. Nothing
+in the cluster reports unhealthy; the pods are fine, the URL is wrong.
+
+**Recovery:** re-run step 9 with the new IP from `kubectl get nodes -o wide`, commit,
+and let the workflow redeploy.
+
+If the churn becomes annoying, reserve a static external IP and assign it to the node
+(`gcloud compute addresses create`), which pins the value across replacements — at the
+cost of a small charge for the reserved address when it is not attached to a running
+instance.
 
 ## Debugging without external exposure
 
