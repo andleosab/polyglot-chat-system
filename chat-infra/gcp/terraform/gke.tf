@@ -69,3 +69,26 @@ resource "google_artifact_registry_repository" "images" {
   format        = "DOCKER"
   description   = "Docker images for chat-demo services"
 }
+
+# Pushing and pulling are done by two different identities, and only the pusher was
+# ever granted anything. CI pushes as github-actions@ (create-deploy-sa.sh grants it
+# roles/artifactregistry.writer); the kubelet pulls as the node pool's service
+# account. The node_config above sets no service_account, so that is the default
+# Compute Engine SA — which, on projects created under the current
+# automaticIamGrantsForDefaultServiceAccounts policy, holds no roles at all.
+#
+# Without this binding every deploy workflow builds and pushes successfully, then
+# times out at `helm --wait` while the pods sit in ImagePullBackOff:
+#   Failed to pull image ".../chat-demo/<service>:<sha>": 403 Forbidden
+# The image is present and correctly tagged; only the read permission is missing,
+# which makes it read like a CI or tagging fault rather than an IAM one.
+#
+# Scoped to this repository rather than the whole project: pulling these images is
+# the only registry access a node needs.
+resource "google_artifact_registry_repository_iam_member" "node_pull" {
+  project    = var.project_id
+  location   = google_artifact_registry_repository.images.location
+  repository = google_artifact_registry_repository.images.repository_id
+  role       = "roles/artifactregistry.reader"
+  member     = "serviceAccount:${data.google_project.current.number}-compute@developer.gserviceaccount.com"
+}
