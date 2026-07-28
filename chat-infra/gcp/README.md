@@ -291,6 +291,23 @@ kubectl get nodes -o wide
 #    Note: chat-web already ran from step 9's push (its path filter covers
 #    helm/values/chat-web.yaml), so dispatching it here runs it a second time.
 #    Harmless — don't read the duplicate run as a failure.
+#
+#    If a run builds and pushes fine but then times out at `helm --wait`, check:
+#      kubectl describe pod -n chat -l app=<service> | tail -20
+#    "Failed to pull image ...: 403 Forbidden" means the NODE cannot read Artifact
+#    Registry. Pushing and pulling are different identities: CI pushes as
+#    github-actions@ (granted by create-deploy-sa.sh), the kubelet pulls as the node
+#    pool's default Compute Engine SA. terraform grants that read access
+#    (google_artifact_registry_repository_iam_member.node_pull in gke.tf), so this
+#    only appears on clusters applied before that resource existed. Fix in place:
+#      PROJECT_NUMBER=$(gcloud projects describe "$(gcloud config get-value project)" \
+#        --format='value(projectNumber)')
+#      gcloud artifacts repositories add-iam-policy-binding chat-demo \
+#        --location=us-west1 \
+#        --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+#        --role="roles/artifactregistry.reader"
+#    Pods recover at the next pull backoff (~5m), or force it with
+#      kubectl rollout restart deployment/<service> -n chat
 
 # 11. Access the app — at the same origin you configured in step 9
 open http://<EXTERNAL-IP>:30080          # if you chose (a)
