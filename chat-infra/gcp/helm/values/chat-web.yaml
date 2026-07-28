@@ -14,15 +14,26 @@ env:
     value: "http://chat-message-service.chat.svc.cluster.local:8080/messaging"
   - name: PRESENCE_API_BASE
     value: "http://chat-presence-service.chat.svc.cluster.local:8000"
-  # BETTER_AUTH_URL, ORIGIN, PUBLIC_DELIVERY_API_BASE depend on the node's external IP.
-  # Update after `terraform apply` once `kubectl get nodes -o wide` reveals the IP,
-  # then commit — the chat-web deploy workflow picks it up.
+  # BETTER_AUTH_URL and ORIGIN must match the origin the BROWSER uses. They are read at
+  # runtime and cannot cover two origins at once, so pick one way in and use it for both:
+  #
+  #   NodePort      http://<node external IP>:30080  — `kubectl get nodes -o wide`.
+  #                 The node is Spot, so this IP changes on preemption.
+  #   port-forward  http://localhost:8080            — `kubectl port-forward svc/nginx
+  #                 8080:80 -n chat`. Forward nginx, not chat-web: the browser needs / and
+  #                 the /chat/ WebSocket on one origin, and nginx is what joins them.
+  #                 Also immune to the Spot IP churn.
+  #
+  # Commit after editing — the chat-web deploy workflow picks it up.
   - name: BETTER_AUTH_URL
-    value: "http://REPLACE_WITH_NODE_EXTERNAL_IP:30080"
+    value: "http://REPLACE_WITH_BROWSER_ORIGIN"
   - name: ORIGIN
-    value: "http://REPLACE_WITH_NODE_EXTERNAL_IP:30080"
-  - name: PUBLIC_DELIVERY_API_BASE
-    value: "ws://REPLACE_WITH_NODE_EXTERNAL_IP:30080/chat"
+    value: "http://REPLACE_WITH_BROWSER_ORIGIN"
+  # PUBLIC_DELIVERY_API_BASE is deliberately absent. ws.ts reads it only under
+  # import.meta.env.DEV, and it is a $env/static/public import — baked in at build time,
+  # so a runtime value here could never reach the bundle anyway. In production the
+  # WebSocket URL is derived from location.host, so it follows whichever origin you
+  # choose above, automatically. Set it in chat-web's local env for `pnpm dev`, not here.
 
 secretName: chat-secrets
 secretEnv:
