@@ -250,12 +250,25 @@ POSTGRES_PASSWORD=<same as terraform.tfvars> ./deploy-infra-services.sh
 #      gh secret set GCP_WIF_PROVIDER --body "<printed value>"
 #    These live on the GitHub repo, not in GCP. CI auth must exist before step 10.
 
-# 9. Get the node's external IP and point chat-web at it
+# 9. Point chat-web at the origin your browser will actually use
+#    Two ways in — pick ONE and use it for both env vars below.
+#
+#    (a) NodePort — reachable from anywhere, but the node is Spot so the IP
+#        changes on preemption:
 kubectl get nodes -o wide
-# Edit helm/values/chat-web.yaml — replace REPLACE_WITH_NODE_EXTERNAL_IP in ALL
-# THREE env vars: BETTER_AUTH_URL, ORIGIN, and PUBLIC_DELIVERY_API_BASE.
-# Missing the third is the easy mistake — the page loads fine and only the
-# WebSocket connect fails.
+#        origin = http://<EXTERNAL-IP>:30080
+#
+#    (b) port-forward — no public IP involved, unaffected by Spot churn:
+#            kubectl port-forward svc/nginx 8080:80 -n chat
+#        origin = http://localhost:8080
+#        Forward nginx, NOT chat-web: the browser needs / and the /chat/ WebSocket
+#        on a single origin, and nginx is what joins them.
+#
+# Edit helm/values/chat-web.yaml — replace REPLACE_WITH_BROWSER_ORIGIN in BOTH
+# BETTER_AUTH_URL and ORIGIN. They are runtime values and must match the browser's
+# origin; a mismatch shows up as auth misbehaving rather than a clean error.
+# The WebSocket needs no configuration — in production its URL comes from
+# location.host, so it follows whichever origin you pick.
 # Commit and push the change to main — this triggers Deploy chat-web automatically
 
 # 10. First-time microservice bootstrap (path filters won't fire on a fresh cluster)
@@ -265,8 +278,9 @@ kubectl get nodes -o wide
 #    helm/values/chat-web.yaml), so dispatching it here runs it a second time.
 #    Harmless — don't read the duplicate run as a failure.
 
-# 11. Access the app
-open http://<EXTERNAL-IP>:30080
+# 11. Access the app — at the same origin you configured in step 9
+open http://<EXTERNAL-IP>:30080          # if you chose (a)
+# kubectl port-forward svc/nginx 8080:80 -n chat && open http://localhost:8080   # if (b)
 
 # 12. Tear down when done (disks are retained — data survives)
 terraform destroy
