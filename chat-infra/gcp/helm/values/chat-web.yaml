@@ -43,6 +43,13 @@ secretEnv:
     secretKey: better-auth-secret
   - envName: DATABASE_URL
     secretKey: db-url-auth
+  # Empty unless google_client_id / google_client_secret are set in terraform.tfvars.
+  # Empty means Google sign-in fails with the message the sign-in page already shows;
+  # email/password is unaffected.
+  - envName: GOOGLE_CLIENT_ID
+    secretKey: google-client-id
+  - envName: GOOGLE_CLIENT_SECRET
+    secretKey: google-client-secret
 
 readinessProbe:
   tcpSocket:

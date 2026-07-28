@@ -4,3 +4,9 @@ jwt_secret         = ""   # shared HMAC-SHA256 secret used by all services
 jwt_jwk            = ""   # base64url-encoded version of jwt_secret (required by Quarkus SmallRye)
 postgres_password  = ""   # postgres superuser password
 better_auth_secret = ""   # Better Auth session signing secret
+
+# Optional — leave empty to disable Google sign-in (email/password still works).
+# Google needs a redirect URI registered in advance, so these are only useful once
+# the cluster is reachable at a stable origin.
+google_client_id     = ""
+google_client_secret = ""

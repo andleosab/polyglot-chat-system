@@ -5,11 +5,6 @@ import { getRequestEvent } from "$app/server";
 import { sveltekitCookies } from "better-auth/svelte-kit";
 import { issueServiceToken } from "./server/jwt";
 
-import {
-  GOOGLE_CLIENT_ID,
-  GOOGLE_CLIENT_SECRET
-} from "$env/static/private";
-
 export const auth = betterAuth({
 	baseURL: env.BETTER_AUTH_URL!,
 	secret: env.BETTER_AUTH_SECRET!,
@@ -90,9 +85,13 @@ export const auth = betterAuth({
   plugins: [sveltekitCookies(getRequestEvent)],	
 
 	socialProviders: {
+		// Read at runtime only. These were also imported from $env/static/private as a
+		// fallback, which forced every build — including CI — to supply values for them,
+		// even though the dynamic read already won. In Docker they come from the env_file,
+		// in Kubernetes from the chat-secrets Secret.
 		google: {
-			clientId: env.GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID ,
-			clientSecret: env.GOOGLE_CLIENT_SECRET || GOOGLE_CLIENT_SECRET,
+			clientId: env.GOOGLE_CLIENT_ID!,
+			clientSecret: env.GOOGLE_CLIENT_SECRET!,
 			accessType: "offline", 
         	prompt: "select_account consent", 
 			scope: ["openid email profile"],
