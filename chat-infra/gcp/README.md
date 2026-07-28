@@ -248,7 +248,14 @@ POSTGRES_PASSWORD=<same as terraform.tfvars> ./deploy-infra-services.sh
 #      gh secret set GCP_PROJECT_ID   --body "<printed value>"
 #      gh secret set GCP_SA_EMAIL     --body "<printed value>"
 #      gh secret set GCP_WIF_PROVIDER --body "<printed value>"
-#    These live on the GitHub repo, not in GCP. CI auth must exist before step 10.
+#    These live on the GitHub repo, not in GCP.
+#    Do NOT skip ahead: the secrets must exist before STEP 9, not step 10. Step 9 edits
+#    helm/values/chat-web.yaml, which is in the Deploy chat-web path filter, so pushing
+#    it fires a deploy immediately. Without the secrets that run dies in seconds at
+#    "Authenticate to GCP" with PROJECT_ID empty and:
+#      the GitHub Action workflow must specify exactly one of
+#      "workload_identity_provider" or "credentials_json"
+#    which reads like a workflow bug but only means the secrets aren't set yet.
 
 # 9. Point chat-web at the origin your browser will actually use
 #    Two ways in — pick ONE and use it for both env vars below.
@@ -269,7 +276,14 @@ kubectl get nodes -o wide
 # origin; a mismatch shows up as auth misbehaving rather than a clean error.
 # The WebSocket needs no configuration — in production its URL comes from
 # location.host, so it follows whichever origin you pick.
-# Commit and push the change to main — this triggers Deploy chat-web automatically
+# Commit and push the change to main — this triggers Deploy chat-web automatically.
+# That push is also the FIRST REAL TEST of the WIF handshake from step 8; nothing
+# verifies it statically. If it fails at "Authenticate to GCP" with a 403 rather than
+# the "must specify exactly one of" message, the secrets are set but the trust is
+# wrong: check the provider's --attribute-condition (repository_owner) and the
+# principalSet:// binding (exact owner/repo). All five workflows already declare
+# `permissions: id-token: write`, so that is not the cause. Nor is it a missing IAM
+# role — those govern what the SA may do once impersonation has already succeeded.
 
 # 10. First-time microservice bootstrap (path filters won't fire on a fresh cluster)
 #    Go to Actions → select each "Deploy <service>" workflow → Run workflow
