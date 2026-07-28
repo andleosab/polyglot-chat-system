@@ -26,9 +26,9 @@ env:
   #
   # Commit after editing — the chat-web deploy workflow picks it up.
   - name: BETTER_AUTH_URL
-    value: "http://REPLACE_WITH_BROWSER_ORIGIN"
+    value: "http://localhost:8080"
   - name: ORIGIN
-    value: "http://REPLACE_WITH_BROWSER_ORIGIN"
+    value: "http://localhost:8080"
   # PUBLIC_DELIVERY_API_BASE is deliberately absent. ws.ts reads it only under
   # import.meta.env.DEV, and it is a $env/static/public import — baked in at build time,
   # so a runtime value here could never reach the bundle anyway. In production the
