@@ -40,29 +40,11 @@ jobs:
         id: tag
         run: echo "tag=${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
 
-      # chat-web/Dockerfile copies .env.local.docker to .env.production so that
-      # SvelteKit can resolve its $env/static/* imports, which are inlined at build
-      # time. That file is gitignored (chat-web/.gitignore: `.env.*`), so it exists
-      # only on a developer machine and the CI build fails without it:
-      #   COPY .env.local.docker .env.production -> "/.env.local.docker": not found
-      #
-      # Only these three names are read statically — PUBLIC_DELIVERY_API_BASE in
-      # ws.ts and the two Google keys in auth.ts. Everything that varies per
-      # environment (BETTER_AUTH_SECRET, DATABASE_URL, the API bases) is read through
-      # $env/dynamic/private at runtime and comes from the chat-secrets Secret and the
-      # Helm values, so nothing sensitive is baked into the image here.
-      #
-      # PUBLIC_DELIVERY_API_BASE's value is irrelevant to the deployed app: ws.ts uses
-      # it only under import.meta.env.DEV, and production derives the socket URL from
-      # location.host. It needs to exist, not to be correct.
-      - name: Write build-time env for SvelteKit static imports
-        run: |
-          cat > chat-web/.env.local.docker <<'ENV'
-          PUBLIC_DELIVERY_API_BASE=ws://localhost/chat
-          GOOGLE_CLIENT_ID=
-          GOOGLE_CLIENT_SECRET=
-          ENV
-
+      # No build-time env step is needed. chat-web/.env.build is committed and holds
+      # the only $env/static/* name left (PUBLIC_DELIVERY_API_BASE); the Dockerfile
+      # copies it to .env.production. Everything that varies per environment is read
+      # through $env/dynamic/private at runtime, from the chat-secrets Secret and the
+      # Helm values — nothing sensitive is baked into the image.
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
