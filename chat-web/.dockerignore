@@ -6,8 +6,7 @@ build
 # Keep developer env files out of the build context. Vite loads .env.local even for a
 # production build, so leaving them in made a local `docker build` silently differ from
 # CI (which checks out from git, where they do not exist) and let local values reach the
-# bundle. Only .env.build belongs here — the Dockerfile copies it to .env.production.
+# bundle. 
 .env*
-!.env.build
 
 *.log
