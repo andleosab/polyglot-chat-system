@@ -1,7 +1,7 @@
 import { writable, type Writable } from 'svelte/store';
 import { append } from '$lib/store/messages';         // ← shared store
 import type { ChatMessage, UserCreatedMessage, TypingSignal } from '$lib/api/types/message';
-import { PUBLIC_DELIVERY_API_BASE } from '$env/static/public';
+import { env } from '$env/dynamic/public';
 
 export const userCreated: Writable<UserCreatedMessage | null> = writable(null);
 export const isConnected: Writable<boolean> = writable(false);
@@ -42,7 +42,7 @@ export async function connect(userUuid: string) {
 
     const proto = location.protocol === 'https:' ? 'wss' : 'ws';
 
-    const wsUrl = isDev ? `${PUBLIC_DELIVERY_API_BASE}/chat/${userUuid}`
+    const wsUrl = isDev ? `${env.PUBLIC_DELIVERY_API_BASE}/chat/${userUuid}`
         : `${proto}://${location.host}/chat/${userUuid}`;    
 
     console.log("==> ", wsUrl);

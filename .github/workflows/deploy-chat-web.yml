@@ -40,11 +40,6 @@ jobs:
         id: tag
         run: echo "tag=${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
 
-      # No build-time env step is needed. chat-web/.env.build is committed and holds
-      # the only $env/static/* name left (PUBLIC_DELIVERY_API_BASE); the Dockerfile
-      # copies it to .env.production. Everything that varies per environment is read
-      # through $env/dynamic/private at runtime, from the chat-secrets Secret and the
-      # Helm values — nothing sensitive is baked into the image.
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
