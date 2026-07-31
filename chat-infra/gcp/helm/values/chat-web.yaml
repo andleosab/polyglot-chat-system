@@ -30,8 +30,8 @@ env:
   - name: ORIGIN
     value: "http://localhost:8080"
   # PUBLIC_DELIVERY_API_BASE is deliberately absent. ws.ts reads it only under
-  # import.meta.env.DEV, and it is a $env/static/public import — baked in at build time,
-  # so a runtime value here could never reach the bundle anyway. In production the
+  # import.meta.env.DEV, which Vite replaces with false in a production build, so the
+  # branch is dead code and setting it here would do nothing. In production the
   # WebSocket URL is derived from location.host, so it follows whichever origin you
   # choose above, automatically. Set it in chat-web's local env for `pnpm dev`, not here.
 

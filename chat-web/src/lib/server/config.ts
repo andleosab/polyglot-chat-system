@@ -12,4 +12,4 @@ export const API = {
   get users() { return required('USER_API_BASE'); },
   get messages() { return required('MESSAGE_API_BASE'); },
   get presence() { return required('PRESENCE_API_BASE'); },
-} as const;
+};

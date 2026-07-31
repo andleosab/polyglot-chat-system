@@ -46,8 +46,10 @@ src/
 **JWT injection (`hooks.server.ts`):** Overrides `event.fetch` with a version that matches the URL against `SERVICE_MAP` (keyed by `MESSAGE_API_BASE` / `USER_API_BASE`) and injects a signed Bearer token. All `+page.server.ts` files call `fetch()` normally — they have no knowledge of auth. One token per service base is cached per request via `tokenCache`.
 
 **Two token types (`src/lib/server/jwt.ts`):**
-- `issueServiceToken(audience, user)` — signs with raw `JWT_SECRET` string, `exp: 10m`
-- `issueWsToken(audience, user)` — signs with `JWT_SECRET` decoded from base64url to bytes (`JWT_SECRET_BYTES`), `exp: 60s`. Required because Quarkus SmallRye JWT expects raw bytes for JWK key material.
+- `issueServiceToken(audience, user)` — signs with the raw `JWT_SECRET` string (`getJwtSecret()`), `exp: 10m`
+- `issueWsToken(audience, user)` — signs with `JWT_SECRET` decoded from base64url to bytes (`getJwtSecretBytes()`), `exp: 60s`. Required because Quarkus SmallRye JWT expects raw bytes for JWK key material.
+
+Both read `JWT_SECRET` through `$env/dynamic/private` on call, never at module load — `pnpm build` must not require it.
 
 **WebSocket handshake (`store/ws.ts`):** Fetches a WS token from `/api/ws-token`, then connects with two subprotocols: `"bearer-token-carrier"` and the URL-encoded `"quarkus-http-upgrade#Authorization#Bearer <token>"` string. Quarkus unpacks the second protocol into an `Authorization` header before JWT validation.
 

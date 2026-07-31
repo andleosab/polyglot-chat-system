@@ -44,7 +44,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: chat-web
-          file: chat-web/Dockerfile
+          file: chat-web/Dockerfile.distroless
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPO }}/${{ env.SERVICE }}:${{ steps.tag.outputs.tag }}
