@@ -11,10 +11,6 @@ RUN pnpm install --frozen-lockfile
 
 # copy source code and build
 COPY . .
-# .env.build is committed and holds only non-secret, build-time $env/static/* names.
-# Runtime config (API bases, DB URL, auth secrets, Google OAuth creds) is read via
-# $env/dynamic/private and injected by the container runtime, not baked in here.
-COPY .env.build .env.production
 RUN pnpm build
 
 # Isolate only production dependencies into /pruned

@@ -11,7 +11,6 @@ RUN pnpm install --frozen-lockfile
 
 # copy source code and build
 COPY . .
-# COPY .env.local.docker .env.production
 RUN pnpm build
 
 # Isolate only production dependencies into /pruned
