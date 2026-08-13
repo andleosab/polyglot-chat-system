@@ -17,12 +17,14 @@ env:
   # BETTER_AUTH_URL and ORIGIN must match the origin the BROWSER uses. They are read at
   # runtime and cannot cover two origins at once, so pick one way in and use it for both:
   #
-  #   NodePort      http://<node external IP>:30080  — `kubectl get nodes -o wide`.
-  #                 The node is Spot, so this IP changes on preemption.
-  #   port-forward  http://localhost:8080            — `kubectl port-forward svc/nginx
-  #                 8080:80 -n chat`. Forward nginx, not chat-web: the browser needs / and
-  #                 the /chat/ WebSocket on one origin, and nginx is what joins them.
-  #                 Also immune to the Spot IP churn.
+  #   port-forward  http://localhost:8080  — `kubectl port-forward svc/nginx 8080:80 -n chat`.
+  #                 The only way in until a Cloudflare tunnel exists. Forward nginx, not
+  #                 chat-web: the browser needs / and the /chat/ WebSocket on one origin,
+  #                 and nginx is what joins them.
+  #   tunnel        https://<your tunnel hostname>  — once cloudflared is deployed. Stable
+  #                 across Spot node replacement, unlike the old NodePort IP. https only:
+  #                 Cloudflare terminates TLS, and a .dev domain is HSTS-preloaded so
+  #                 browsers refuse plain http to it regardless.
   #
   # Commit after editing — the chat-web deploy workflow picks it up.
   - name: BETTER_AUTH_URL

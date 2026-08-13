@@ -16,6 +16,9 @@ terraform {
     # name out of version control. After running bootstrap/create-state-bucket.sh,
     # init with your real bucket name:
     #   terraform init -backend-config="bucket=<YOUR_PROJECT_ID>-tf-state"
+    #
+    # The budget module shares this bucket under a different prefix, which keeps
+    # the two states independent. Do not point both at the same prefix.
     prefix = "chat-demo/state"
   }
 }
@@ -23,15 +26,6 @@ terraform {
 provider "google" {
   project = var.project_id
   region  = "us-west1"
-
-  # billingbudgets.googleapis.com bills API quota to a project via the
-  # X-Goog-User-Project header. Under user ADC that header is unset by default,
-  # so the budget-create call falls back to a Google-owned project and fails with
-  # a misleading SERVICE_DISABLED 403. These two settings make Terraform always
-  # send your project. (Setting the quota project on the ADC via gcloud does NOT
-  # help — Terraform ignores that field.)
-  user_project_override = true
-  billing_project       = var.project_id
 }
 
 data "google_client_config" "default" {}

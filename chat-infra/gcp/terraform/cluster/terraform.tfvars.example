@@ -1,12 +1,19 @@
 project_id         = ""   # GCP project ID (e.g. my-project-123)
-billing_account    = ""   # XXXXXX-XXXXXX-XXXXXX
 jwt_secret         = ""   # shared HMAC-SHA256 secret used by all services
 jwt_jwk            = ""   # base64url-encoded version of jwt_secret (required by Quarkus SmallRye)
 postgres_password  = ""   # postgres superuser password
 better_auth_secret = ""   # Better Auth session signing secret
 
+# Optional — leave empty until a Cloudflare tunnel exists. While empty,
+# deploy-infra-services.sh skips cloudflared and the cluster has no external
+# ingress at all; reach it with `kubectl port-forward svc/nginx 8080:80 -n chat`.
+tunnel_token = ""
+
 # Optional — leave empty to disable Google sign-in (email/password still works).
 # Google needs a redirect URI registered in advance, so these are only useful once
-# the cluster is reachable at a stable origin.
+# the tunnel is live and the cluster has a stable https origin.
 google_client_id     = ""
 google_client_secret = ""
+
+# NOTE: billing_account is not here — the budget lives in ../budget, which has its
+# own tfvars.

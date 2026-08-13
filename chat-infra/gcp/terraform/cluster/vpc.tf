@@ -20,16 +20,6 @@ resource "google_compute_subnetwork" "main" {
   }
 }
 
-# Allows external traffic to reach Nginx on NodePort 30080 only.
-resource "google_compute_firewall" "nodeport_http" {
-  name    = "chat-demo-nodeport-http"
-  network = google_compute_network.main.name
-
-  allow {
-    protocol = "tcp"
-    ports    = ["30080"]
-  }
-
-  source_ranges = ["0.0.0.0/0"]
-  target_tags   = ["gke-node"]
-}
+# No ingress firewall rule: nothing reaches this cluster from the outside. cloudflared
+# dials Cloudflare's edge outbound and traffic arrives back down that connection, which
+# the default egress-allow rule already covers.

@@ -1,0 +1,2 @@
+project_id      = ""   # GCP project ID (e.g. my-project-123)
+billing_account = ""   # XXXXXX-XXXXXX-XXXXXX

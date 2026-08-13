@@ -1,0 +1,5 @@
+apiVersion: v2
+name: cloudflared
+description: Cloudflare Tunnel connector — the cluster's only external ingress (outbound-only, no Service)
+type: application
+version: 0.1.0

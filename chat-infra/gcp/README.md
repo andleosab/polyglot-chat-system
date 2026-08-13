@@ -6,9 +6,24 @@ GCP infrastructure for the polyglot chat demo. Designed to stay within the GCP a
 
 | Layer | What | How |
 |---|---|---|
-| GCP resources | Cluster, VPC, disks, namespace, K8s secrets | `terraform apply` |
-| Infra services | Postgres, Redis, Redpanda, Nginx | `bootstrap/deploy-infra-services.sh` (run once after apply) |
+| Billing budget | Budget alert | `terraform apply` in `terraform/budget/` — **applied once, never destroyed** |
+| GCP resources | Cluster, VPC, disks, namespace, K8s secrets | `terraform apply` in `terraform/cluster/` |
+| Infra services | Postgres, Redis, Redpanda, Nginx, cloudflared | `bootstrap/deploy-infra-services.sh` (run once after apply) |
 | Microservices | 5 app services | GitHub Actions on push to `main` |
+
+### Two Terraform root modules
+
+`terraform/cluster/` and `terraform/budget/` are independent root modules sharing one
+state bucket under different prefixes (`chat-demo/state` and `chat-demo/budget`). The
+split exists so that `terraform destroy` on the cluster — which you will run often, since
+the node is the only real cost — does not take the budget alert with it.
+
+The boundary is **lifetime, not subject matter**. Everything else the cluster module owns
+is deliberately destroyed with it, including the Postgres and Redpanda disks and the
+Artifact Registry repository. Recreating means empty databases and a full image rebuild
+(dispatch the five deploy workflows). That is the intended behaviour while the schema is
+still in flux — a clean slate on recreate, not a cost saving. The two disks and the
+registry would cost well under a dollar a month to keep.
 
 ## What's here
 
@@ -16,22 +31,28 @@ GCP infrastructure for the polyglot chat demo. Designed to stay within the GCP a
 bootstrap/
   create-state-bucket.sh      # one-time GCS state bucket setup — run before terraform init
   create-deploy-sa.sh         # one-time: GitHub Actions deploy SA + roles + JSON key
-  deploy-infra-services.sh    # deploy Postgres, Redis, Redpanda, Nginx via Helm
+  deploy-infra-services.sh    # deploy Postgres, Redis, Redpanda, Nginx, cloudflared via Helm
 
 terraform/
-  providers.tf                # GCS backend, google/kubernetes providers
-  variables.tf                # input variables (secrets via terraform.tfvars)
-  gke.tf                      # GKE Standard cluster + e2-standard-2 Spot node pool + Artifact Registry
-  vpc.tf                      # VPC, subnet, firewall (NodePort 30080 only)
-  disks.tf                    # pre-provisioned pd-standard disks: Postgres (5GB) + Redpanda (5GB)
-  namespaces.tf               # chat namespace + shared K8s Secret (chat-secrets)
-  helm_releases.tf            # intentionally empty — see file for explanation
-  budget.tf                   # 1-unit budget alert in the billing account's currency (fires while trial credit drains)
-  terraform.tfvars.example    # template — copy to terraform.tfvars and fill in secrets
+  cluster/                    # created and destroyed freely — state prefix chat-demo/state
+    providers.tf              # GCS backend, google/kubernetes providers
+    variables.tf              # input variables (secrets via terraform.tfvars)
+    gke.tf                    # GKE Standard cluster + e2-standard-2 Spot node pool + Artifact Registry
+    vpc.tf                    # VPC + subnet (no ingress firewall rule — cloudflared dials out)
+    disks.tf                  # pre-provisioned pd-standard disks: Postgres (5GB) + Redpanda (5GB)
+    namespaces.tf             # chat namespace + shared K8s Secret (chat-secrets)
+    helm_releases.tf          # intentionally empty — see file for explanation
+    terraform.tfvars.example  # template — copy to terraform.tfvars and fill in secrets
+  budget/                     # applied once, outlives cluster teardown — prefix chat-demo/budget
+    providers.tf              # GCS backend, google provider (with the billing quota-project override)
+    variables.tf              # project_id + billing_account
+    budget.tf                 # 1-unit budget alert in the billing account's currency (fires while trial credit drains)
+    terraform.tfvars.example  # template
 
 helm/
   microservice/               # generic chart reused by all 5 microservices
-  nginx/                      # Nginx reverse proxy (reuses existing nginx.conf routing rules)
+  nginx/                      # Nginx reverse proxy, ClusterIP (reuses existing nginx.conf routing rules)
+  cloudflared/                # Cloudflare Tunnel connector — the only external ingress
   redis/                      # ephemeral Redis — no PVC, data is TTL-based
   postgres/                   # StatefulSet on pre-created GCE disk, init SQL as ConfigMap
   redpanda/                   # single-broker Redpanda, memory-capped at 600MB
@@ -51,7 +72,8 @@ helm/
 | e2-standard-2 Spot node | ~$15/mo (approximate — check the billing console) — absorbed by the trial credit |
 | 30GB pd-standard disks (20GB boot + 5GB Postgres + 5GB Redpanda) | $0 — always-free cap |
 | GCS state bucket | $0 — state file is a few KB, well under 5GB always-free cap |
-| Artifact Registry | $0 — under 0.5GB/mo free tier |
+| Artifact Registry | $0 — under 0.5GB/mo free tier (five images, two of them JVM, may exceed it; overage is ~$0.10/GB/mo) |
+| Cloudflare Tunnel | $0 — the tunnel itself is free; only the domain costs anything (Cloudflare Registrar sells at cost) |
 | Budget alert | 1-unit threshold in the billing account's currency, `EXCLUDE_ALL_CREDITS=true` so it fires during trial period |
 
 ## Resource budget
@@ -71,7 +93,8 @@ two here.
 | redpanda | 250m | 700Mi | 700Mi |
 | redis | 50m | 32Mi | 64Mi |
 | nginx | 50m | 32Mi | 64Mi |
-| **Total** | **850m** | **~1.7GB** | **~2.6GB** |
+| cloudflared (×2) | 40m | 64Mi | 256Mi |
+| **Total** | **890m** | **~1.8GB** | **~2.9GB** |
 
 ### Budget against allocatable minus system overhead
 
@@ -83,7 +106,7 @@ Never size against the machine's advertised specs. Two deductions come first:
 | Node allocatable (after GKE's reserve) | ~1930m | ~6.1GB |
 | GKE system pods (measured) | ~753m | ~1.04GB |
 | **Left for this stack** | **~1180m** | **~5GB** |
-| Stack requests | 850m | ~1.7GB |
+| Stack requests | 890m | ~1.8GB |
 
 The ~753m of system overhead is roughly **fixed regardless of workload** and dominated
 by `kube-dns` (270m), which no application can do without. Logging and monitoring
@@ -133,9 +156,8 @@ Install these before starting. The first-run sequence assumes all of them are on
 
 ## Pre-apply setup (fresh project only)
 
-On a brand-new GCP project, `terraform apply` will fail partway through unless
-these are done first. Both cause a *partial* apply — cluster/disks/networks
-succeed, then the budget resource errors out.
+On a brand-new GCP project, `terraform apply` will fail unless these are done first.
+Both affect the **budget** module; the cluster module applies without them.
 
 **1. Enable the APIs the apply touches.** `billingbudgets.googleapis.com` and
 `cloudresourcemanager.googleapis.com` are **not** guaranteed enabled on a fresh
@@ -156,11 +178,15 @@ gcloud services enable \
 `compute`/`container` self-enable on first use, but enabling all four up-front is
 faster and avoids one-time race warnings.
 
+> Since the split, a missing Billing Budgets API no longer produces a *partial* apply
+> of the cluster — the two modules fail independently. That is the main day-to-day
+> benefit of the split beyond surviving `destroy`.
+
 > **The budget also needs a quota project.** `billingbudgets.googleapis.com` bills
 > API quota to a project via the `X-Goog-User-Project` header. Under user ADC that
 > header is unset by default, so the call falls back to a Google-owned project and
 > fails with a misleading `SERVICE_DISABLED` 403 (the error's `consumer` field
-> points at a project number that isn't yours). `providers.tf` sets
+> points at a project number that isn't yours). `budget/providers.tf` sets
 > `user_project_override = true` + `billing_project = var.project_id` so Terraform
 > always sends your project — no manual step needed. Note that `gcloud auth
 > application-default set-quota-project` fixes this for the gcloud CLI but **not**
@@ -194,6 +220,29 @@ role "Billing Account Costs Manager"**.
 > GCP emails the Billing Account Administrators and Users by default (no
 > Slack/SMS). This is expected.
 
+**3. Create the Cloudflare tunnel — optional, and skippable on a first pass.** External
+access runs through Cloudflare Tunnel; the token has to be in `terraform.tfvars` before
+the cluster apply, so the tunnel is created *before* the cluster exists. That is fine —
+Cloudflare does not check the origin until traffic flows.
+
+In the Cloudflare dashboard: **Zero Trust → Networks → Tunnels → Create a tunnel →
+Cloudflared**. Name it, copy the token, and add a public hostname:
+
+| Field | Value |
+|---|---|
+| Subdomain / domain | e.g. `chat` / `alslabs.dev` |
+| Service type | HTTP |
+| URL | `nginx.chat.svc.cluster.local:80` |
+
+One catch-all hostname is all that is needed — nginx owns the `/` vs `/chat/` split, and
+Cloudflare upgrades the `/chat/` WebSocket natively. Cloudflare creates the DNS record for
+you. Put the token in `tunnel_token` in the cluster module's `terraform.tfvars`.
+
+**Skip this entirely if you have no Cloudflare account yet.** Leave `tunnel_token` empty:
+`deploy-infra-services.sh` skips the cloudflared release, the cluster comes up with no
+external ingress, and `kubectl port-forward` is the way in (step 9 below). Everything
+except the tunnel leg is testable in that state.
+
 ## First-run sequence
 
 ```bash
@@ -208,35 +257,48 @@ cd chat-infra/gcp/bootstrap
 ./create-state-bucket.sh
 # The script prints the bucket name (<YOUR_PROJECT_ID>-tf-state) for the next step
 
-# 3. Init Terraform — the bucket is passed here, not hardcoded in providers.tf
-cd ../terraform
+# 3. Apply the budget — separate root module, own state prefix. Run this ONCE; it is
+#    deliberately not touched by cluster teardown, so you never repeat it.
+cd ../terraform/budget
 terraform init -backend-config="bucket=<YOUR_PROJECT_ID>-tf-state"
+cat > terraform.tfvars <<EOF
+project_id      = "<YOUR_PROJECT_ID>"
+billing_account = "<XXXXXX-XXXXXX-XXXXXX>"
+EOF
+terraform apply
+#    If a budget named chat-demo-budget already exists (e.g. hand-created in the
+#    console after an earlier destroy), delete it there first. GCP does not enforce
+#    unique display names, so applying over it produces two budgets, not one.
 
-# 4. Create terraform.tfvars (gitignored — never commit this)
+# 4. Init the cluster module and create its terraform.tfvars (gitignored)
+cd ../cluster
+terraform init -backend-config="bucket=<YOUR_PROJECT_ID>-tf-state"
 cat > terraform.tfvars <<EOF
 project_id         = "<YOUR_PROJECT_ID>"
-billing_account    = "<XXXXXX-XXXXXX-XXXXXX>"
 jwt_secret         = "<shared HMAC secret>"
 jwt_jwk            = "<base64url-encoded JWT secret for Quarkus>"
 postgres_password  = "<postgres superuser password>"
 better_auth_secret = "<Better Auth session signing secret>"
+tunnel_token       = "<Cloudflare tunnel token, or leave empty>"
 EOF
+#    No billing_account here — that belongs to the budget module.
 
 # 5. Apply in two steps — kubernetes provider can't connect until the cluster exists
 #    Step 5a: create cluster (Terraform auto-includes VPC + subnet as dependencies)
 terraform apply -target=google_container_cluster.main
 
 #    Step 5b: full apply — cluster now exists, kubernetes provider can connect
-#             Creates: node pool, disks, firewall, Artifact Registry, budget,
-#                      chat namespace, chat-secrets K8s Secret
+#             Creates: node pool, disks, Artifact Registry, chat namespace,
+#                      chat-secrets K8s Secret. No firewall rule — cloudflared dials out.
 terraform apply
 
 # 6. Configure kubectl for the new cluster
 gcloud container clusters get-credentials chat-demo --zone us-west1-a
 
-# 7. Deploy infra services (Postgres, Redis, Redpanda, Nginx)
-cd ../bootstrap
+# 7. Deploy infra services (Postgres, Redis, Redpanda, Nginx, cloudflared)
+cd ../../bootstrap
 POSTGRES_PASSWORD=<same as terraform.tfvars> ./deploy-infra-services.sh
+#    cloudflared is skipped, with a message, if tunnel_token was left empty.
 
 # 8. Create the GitHub Actions deploy service account + Workload Identity Federation
 #    No key file is created — workflows authenticate with a short-lived OIDC token.
@@ -260,20 +322,23 @@ POSTGRES_PASSWORD=<same as terraform.tfvars> ./deploy-infra-services.sh
 # 9. Point chat-web at the origin your browser will actually use
 #    Two ways in — pick ONE and use it for both env vars below.
 #
-#    (a) NodePort — reachable from anywhere, but the node is Spot so the IP
-#        changes on preemption:
-kubectl get nodes -o wide
-#        origin = http://<EXTERNAL-IP>:30080
-#
-#    (b) port-forward — no public IP involved, unaffected by Spot churn:
+#    (a) port-forward — the only way in with no tunnel configured:
 #            kubectl port-forward svc/nginx 8080:80 -n chat
 #        origin = http://localhost:8080
 #        Forward nginx, NOT chat-web: the browser needs / and the /chat/ WebSocket
-#        on a single origin, and nginx is what joins them.
+#        on a single origin, and nginx is what joins them. Works against a ClusterIP
+#        Service and needs no firewall rule — it tunnels via the API server.
+#        This is the default already committed in helm/values/chat-web.yaml, so with
+#        no tunnel there is nothing to edit here.
 #
-# Edit helm/values/chat-web.yaml — replace REPLACE_WITH_BROWSER_ORIGIN in BOTH
-# BETTER_AUTH_URL and ORIGIN. They are runtime values and must match the browser's
-# origin; a mismatch shows up as auth misbehaving rather than a clean error.
+#    (b) Cloudflare tunnel — once cloudflared is deployed:
+#        origin = https://<your tunnel hostname>, e.g. https://chat.alslabs.dev
+#        Stable across Spot node replacement. https only — Cloudflare terminates TLS,
+#        and a .dev domain is HSTS-preloaded, so browsers refuse plain http to it.
+#
+# Edit helm/values/chat-web.yaml — set BOTH BETTER_AUTH_URL and ORIGIN to the origin
+# you picked. They are runtime values and must match the browser's origin; a mismatch
+# shows up as auth misbehaving rather than a clean error.
 # The WebSocket needs no configuration — in production its URL comes from
 # location.host, so it follows whichever origin you pick.
 # Commit and push the change to main — this triggers Deploy chat-web automatically.
@@ -298,7 +363,7 @@ kubectl get nodes -o wide
 #    Registry. Pushing and pulling are different identities: CI pushes as
 #    github-actions@ (granted by create-deploy-sa.sh), the kubelet pulls as the node
 #    pool's default Compute Engine SA. terraform grants that read access
-#    (google_artifact_registry_repository_iam_member.node_pull in gke.tf), so this
+#    (google_artifact_registry_repository_iam_member.node_pull in cluster/gke.tf), so this
 #    only appears on clusters applied before that resource existed. Fix in place:
 #      PROJECT_NUMBER=$(gcloud projects describe "$(gcloud config get-value project)" \
 #        --format='value(projectNumber)')
@@ -310,35 +375,39 @@ kubectl get nodes -o wide
 #      kubectl rollout restart deployment/<service> -n chat
 
 # 11. Access the app — at the same origin you configured in step 9
-open http://<EXTERNAL-IP>:30080          # if you chose (a)
-# kubectl port-forward svc/nginx 8080:80 -n chat && open http://localhost:8080   # if (b)
+kubectl port-forward svc/nginx 8080:80 -n chat && open http://localhost:8080   # if (a)
+# open https://<your tunnel hostname>                                          # if (b)
 
-# 12. Tear down when done (disks are retained — data survives)
+# 12. Tear down when done. Run this from terraform/cluster — NOT from terraform/budget,
+#     which is applied once and left alone.
+#     This DELETES the Postgres and Redpanda disks and the Artifact Registry repository
+#     along with everything else. Databases come back empty and all five images must be
+#     rebuilt (step 10) on the next apply. The budget alert survives.
+cd ../terraform/cluster
 terraform destroy
 ```
 
-## The node IP is ephemeral — expect it to change
+## The node IP no longer matters
 
-The node pool runs a **single Spot `e2-standard-2`** (`gke.tf`), chosen deliberately for
-cost (see ADR-0005). Spot nodes are reclaimable: GCP can preempt the node at any
-time, and GKE replaces it. The replacement comes back with a **new external IP**.
+The node pool runs a **single Spot `e2-standard-2`** (`cluster/gke.tf`), chosen
+deliberately for cost (see ADR-0005). Spot nodes are reclaimable: GCP can preempt the node
+at any time, GKE replaces it, and the replacement comes back with a new external IP.
 
-Because step 9 bakes that IP into three env vars in `helm/values/chat-web.yaml`, a
-preemption leaves `chat-web` pointing at an address that no longer exists — logins
-fail against the stale `BETTER_AUTH_URL` and the WebSocket never connects. Nothing
-in the cluster reports unhealthy; the pods are fine, the URL is wrong.
+That used to break the app. The origin was `http://<node IP>:30080`, baked into
+`BETTER_AUTH_URL` and `ORIGIN` in `helm/values/chat-web.yaml`, so a preemption left
+`chat-web` pointing at an address that no longer existed — logins failed and the WebSocket
+never connected, while every pod reported healthy.
 
-**Recovery:** re-run step 9 with the new IP from `kubectl get nodes -o wide`, commit,
-and let the workflow redeploy.
-
-If the churn becomes annoying, reserve a static external IP and assign it to the node
-(`gcloud compute addresses create`), which pins the value across replacements — at the
-cost of a small charge for the reserved address when it is not attached to a running
-instance.
+**Nothing in the ingress path references the node IP any more.** cloudflared dials out to
+Cloudflare's edge and the hostname is stable, so a preemption costs a pod restart and
+nothing else. `kubectl port-forward` is likewise unaffected — it goes through the API
+server, not the node's external address. See ADR-0006.
 
 ## Debugging without external exposure
 
-All services except Nginx are ClusterIP-only. Use `kubectl port-forward` for direct access:
+**No Service in this cluster is externally reachable** — everything is ClusterIP,
+including nginx, and there is no ingress firewall rule. External traffic arrives only
+through the cloudflared tunnel. Use `kubectl port-forward` for direct access:
 
 ```bash
 # Postgres
@@ -349,7 +418,15 @@ kubectl port-forward svc/redpanda 9092:9092 -n chat
 
 # Presence service HTTP
 kubectl port-forward svc/chat-presence-service 8000:8000 -n chat
+
+# The whole app — forward nginx, not chat-web (it joins / and the /chat/ WebSocket)
+kubectl port-forward svc/nginx 8080:80 -n chat
 ```
+
+Check the tunnel's own health with `kubectl logs -n chat -l app=cloudflared`. Its
+readiness probe hits cloudflared's `/ready`, which returns 200 only while a connection to
+Cloudflare's edge is registered — so `0/1 READY` means the tunnel leg is genuinely down,
+not just that the process is slow to start.
 
 ## GitHub Actions setup
 
@@ -392,4 +469,5 @@ There is one workflow per service under `.github/workflows/deploy-<service>.yml`
 
 ## Architecture decisions
 
-See [`docs/adr/0005-gke-standard-over-autopilot.md`](../../docs/adr/0005-gke-standard-over-autopilot.md) for why GKE Standard was chosen over Autopilot.
+- [`docs/adr/0005-gke-standard-over-autopilot.md`](../../docs/adr/0005-gke-standard-over-autopilot.md) — why GKE Standard over Autopilot.
+- [`docs/adr/0006-nginx-nodeport-vs-cloudflare-tunnel.md`](../../docs/adr/0006-nginx-nodeport-vs-cloudflare-tunnel.md) — why Cloudflare Tunnel replaced NodePort, and why nginx was kept rather than folded into cloudflared's own routing.

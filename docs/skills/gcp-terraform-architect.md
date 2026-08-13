@@ -64,5 +64,7 @@ validation {
 ## Status
 
 Parked — written 2026-05-22. Not yet installed as an active skill.
-Apply if/when `chat-infra/gcp/terraform/` is refactored into a layered layout.
-Current flat layout (`gke.tf`, `namespaces.tf`, etc.) is intentional for a single-node demo cluster.
+
+`chat-infra/gcp/terraform/` was split into two root modules on 2026-07-30 (`cluster/` and
+`budget/`), but the split axis is resource *lifetime*, not the layered layout this document
+describes — each module is still flat inside. Revisit if the layering itself is adopted.
