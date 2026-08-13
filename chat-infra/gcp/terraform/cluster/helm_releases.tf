@@ -1,6 +1,6 @@
 # Helm releases are no longer managed by Terraform.
 #
-# Infra services (Postgres, Redis, Redpanda, Nginx) are deployed manually:
+# Infra services (Postgres, Redis, Redpanda, Nginx, cloudflared) are deployed manually:
 #   ./bootstrap/deploy-infra-services.sh
 #
 # Microservices are deployed by GitHub Actions on every push to main:

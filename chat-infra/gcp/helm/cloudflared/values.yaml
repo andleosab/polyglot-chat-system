@@ -1,0 +1,19 @@
+image:
+  repository: cloudflare/cloudflared
+  tag: "2026.7.3"
+  pullPolicy: IfNotPresent
+
+# Two connectors so a rolling restart or a node hiccup doesn't drop the tunnel.
+# Cloudflare load-balances across all registered connectors of a tunnel.
+replicas: 2
+
+secretName: chat-secrets
+secretKey: tunnel-token
+
+resources:
+  requests:
+    cpu: "20m"
+    memory: "32Mi"
+  limits:
+    cpu: "100m"
+    memory: "128Mi"

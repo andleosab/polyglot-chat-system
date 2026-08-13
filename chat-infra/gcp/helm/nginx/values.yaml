@@ -3,8 +3,6 @@ image:
   tag: "1.27-alpine"
   pullPolicy: IfNotPresent
 
-nodePort: 30080
-
 resources:
   requests:
     cpu: "50m"
