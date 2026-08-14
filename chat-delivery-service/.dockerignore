@@ -1,4 +1,5 @@
-target/
+target/*
+!target/quarkus-app
 .env*
 .settings/
 .project
