@@ -43,7 +43,7 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
-          context: .
+          context: chat-presence-service
           file: chat-presence-service/Dockerfile
           push: true
           tags: |
