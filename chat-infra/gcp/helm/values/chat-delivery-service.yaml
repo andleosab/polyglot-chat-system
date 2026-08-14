@@ -18,6 +18,8 @@ env:
     value: "chat-presence-service.chat.svc.cluster.local"
   - name: PRESENCE_SERVICE_GRPC_PORT
     value: "50051"
+  - name: REDIS_URL
+    value: "redis://redis.chat.svc.cluster.local:6379"
 
 secretName: chat-secrets
 secretEnv:
