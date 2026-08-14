@@ -40,6 +40,17 @@ jobs:
         id: tag
         run: echo "tag=${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
 
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Build jar
+        working-directory: chat-user-service
+        run: ./mvnw -B -DskipTests package
+
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
