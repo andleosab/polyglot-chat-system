@@ -27,18 +27,27 @@ secretEnv:
   - envName: DB_PASSWORD
     secretKey: postgres-password
 
+# Startup takes ~65s under these CPU limits. Liveness and readiness stay suspended
+# until this passes, so a slow boot cannot trip the restart loop.
+startupProbe:
+  httpGet:
+    path: /user/actuator/health
+    port: http
+  periodSeconds: 10
+  timeoutSeconds: 3
+  failureThreshold: 30
 readinessProbe:
   httpGet:
     path: /user/actuator/health
     port: http
-  initialDelaySeconds: 20
   periodSeconds: 5
+  timeoutSeconds: 3
 livenessProbe:
   httpGet:
     path: /user/actuator/health
     port: http
-  initialDelaySeconds: 60
   periodSeconds: 10
+  timeoutSeconds: 3
 
 resources:
   requests:

@@ -4,6 +4,8 @@ import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.actuate.autoconfigure.security.servlet.EndpointRequest;
+import org.springframework.boot.actuate.health.HealthEndpoint;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -24,7 +26,9 @@ public class SecurityConfig {
         http
         .csrf(csrf -> csrf.disable())
         .authorizeHttpRequests(auth -> auth
-        	.requestMatchers("/api/auth/**").permitAll()	
+        	// kubelet probes carry no JWT
+        	.requestMatchers(EndpointRequest.to(HealthEndpoint.class)).permitAll()
+        	.requestMatchers("/api/auth/**").permitAll()
             .anyRequest().authenticated()
 //            .anyRequest().permitAll()
         )
