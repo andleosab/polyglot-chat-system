@@ -1,0 +1,14 @@
+.git
+.env*
+.DS_Store
+.settings/
+.project
+.classpath
+.factorypath
+.vscode/
+logs/
+
+# Dockerfile copies target/*.jar; Dockerfile.builder builds from source and needs
+# neither. Everything else Maven writes here is context bloat.
+target/*
+!target/*.jar
