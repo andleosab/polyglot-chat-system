@@ -9,13 +9,47 @@ export const presenceUpdate: Writable<ChatMessage | null> = writable(null);
 export const typingSignal: Writable<TypingSignal | null> = writable(null);
 let _typingClearTimer: ReturnType<typeof setTimeout> | null = null;
 
-let reconnectAttempts = 0;
-const MAX_RECONNECT = 5;
-const RECONNECT_DELAY = 3000;
+// Set when the BFF refuses to mint a socket token. Components can watch this to prompt
+// a fresh sign-in; nothing reconnects while it is true.
+export const sessionExpired: Writable<boolean> = writable(false);
+
+// Close codes that must NOT be retried. Every other close is treated as transient — a
+// preempted node, a restarting pod, an idle socket reaped by an edge proxy — so retrying
+// is the default and this set is the exception.
+//   1000  normal closure, including our own disconnect()
+//   4401  session rejected by the delivery service (reserved; see ChatSocket)
+// Note 4503 is deliberately absent: it means a dependency was unavailable, which is
+// exactly the case worth retrying.
+const FATAL_CLOSE_CODES = new Set([1000, 4401]);
+
+const RECONNECT_BASE_DELAY = 1000;
+const MAX_RECONNECT_DELAY = 30000;
 const MAX_MESSAGES = 300;
 
+let reconnectAttempts = 0;
 let ws: WebSocket | null = null;
+let connecting = false;
+let intentionalClose = false;
 let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+
+function scheduleReconnect(userUuid: string): void {
+    if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+        reconnectTimeout = null;
+    }
+
+    reconnectAttempts++;
+    const delay = Math.min(
+        RECONNECT_BASE_DELAY * Math.pow(1.5, reconnectAttempts),
+        MAX_RECONNECT_DELAY
+    );
+
+    console.log(`Reconnect attempt ${reconnectAttempts} in ${(delay / 1000).toFixed(1)}s`);
+    reconnectTimeout = setTimeout(() => {
+        reconnectTimeout = null;
+        void connect(userUuid);
+    }, delay);
+}
 
 // ─── One-shot new conversation listener ───────────────────────────────────────
 // ChatView registers this before sending the very first private message.
@@ -34,107 +68,121 @@ export function cancelNewConversationListener(): void {
 
 
 export async function connect(userUuid: string) {
-    if (!userUuid || ws) return;
+    // `connecting` guards the await below: ws is still null while the token is in flight,
+    // so the ws check alone would let a second call open a duplicate socket.
+    if (!userUuid || ws || connecting) return;
 
-    const isDev = import.meta.env.DEV;
+    connecting = true;
+    intentionalClose = false;
 
-    console.log("env: ", isDev);
+    try {
+        const isDev = import.meta.env.DEV;
 
-    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+        console.log("env: ", isDev);
 
-    const wsUrl = isDev ? `${env.PUBLIC_DELIVERY_API_BASE}/chat/${userUuid}`
-        : `${proto}://${location.host}/chat/${userUuid}`;    
+        const proto = location.protocol === 'https:' ? 'wss' : 'ws';
 
-    console.log("==> ", wsUrl);
+        const wsUrl = isDev ? `${env.PUBLIC_DELIVERY_API_BASE}/chat/${userUuid}`
+            : `${proto}://${location.host}/chat/${userUuid}`;
 
-    const { token } = await fetch("/api/ws-token", { method: "POST" }).then(r => r.json());
-    const quarkusHeaderProtocol = encodeURIComponent("quarkus-http-upgrade#Authorization#Bearer " + token);
+        console.log("==> ", wsUrl);
 
-    console.log('Connecting to WebSocket with token:', token);
+        const res = await fetch("/api/ws-token", { method: "POST" });
 
-    ws = new WebSocket(wsUrl,
-        ["bearer-token-carrier", quarkusHeaderProtocol]);
-
-    ws.onopen = () => {
-        isConnected.set(true);
-        reconnectAttempts = 0;
-        console.log('WebSocket connected');
-    };
-
-    ws.onmessage = (event) => {
-        const rawMsg = JSON.parse(event.data);
-
-        // User created broadcast — update the users store
-        if (rawMsg.type === 'USER_CREATED') {
-            console.log('User created event:', rawMsg);
-            userCreated.set(rawMsg as UserCreatedMessage);
+        // The only failure the browser can positively identify as fatal. A rejected token
+        // fails here rather than at the upgrade, where @Authenticated returns a 401
+        // handshake and the socket reports 1006 — indistinguishable from a dead pod.
+        if (res.status === 401) {
+            console.error('WS token refused: session is gone. Not reconnecting.');
+            sessionExpired.set(true);
             return;
         }
 
-        const msg: ChatMessage = rawMsg;
+        if (!res.ok) throw new Error(`ws-token request failed: ${res.status}`);
 
-        // Live presence updates — set store, never append to message history
-        if (msg.type === 'USER_JOINED' || msg.type === 'USER_LEFT') {
-            console.log('Presence update:', msg.type, msg.from);
-            presenceUpdate.set(msg);
-            return;
-        }
+        const { token } = await res.json();
+        const quarkusHeaderProtocol = encodeURIComponent("quarkus-http-upgrade#Authorization#Bearer " + token);
 
-        // Typing indicator — set store then auto-clear after 4s
-        if (msg.type === 'TYPING') {
-            if (_typingClearTimer) clearTimeout(_typingClearTimer);
-            typingSignal.set({ conversationId: msg.conversationId!, from: msg.from, fromName: msg.fromName });
-            _typingClearTimer = setTimeout(() => typingSignal.set(null), 4000);
-            return;
-        }
+        console.log('Connecting to WebSocket with token:', token);
 
-        console.log('Received message:', msg);
+        ws = new WebSocket(wsUrl,
+            ["bearer-token-carrier", quarkusHeaderProtocol]);
 
-        append(msg);   // ← write into shared messages store
-        // Fire the one-shot listener if a new conversationId comes back
-        if (msg.conversationId && newConvoListener) {
-            newConvoListener(msg.conversationId);
-            newConvoListener = null;
-        }
-    };
+        ws.onopen = () => {
+            isConnected.set(true);
+            reconnectAttempts = 0;
+            sessionExpired.set(false);
+            console.log('WebSocket connected');
+        };
 
-    ws.onclose = (event) => {
-        isConnected.set(false);
-        ws = null;
-        console.log('close code:', event.code, 'reason:', event.reason);
+        ws.onmessage = (event) => {
+            const rawMsg = JSON.parse(event.data);
 
-        console.log('WebSocket disconnected');
+            // User created broadcast — update the users store
+            if (rawMsg.type === 'USER_CREATED') {
+                console.log('User created event:', rawMsg);
+                userCreated.set(rawMsg as UserCreatedMessage);
+                return;
+            }
 
-        if (reconnectTimeout) {
-            clearTimeout(reconnectTimeout);
-            reconnectTimeout = null;
-        }
+            const msg: ChatMessage = rawMsg;
 
-        //REVISIT: we should not reconnect if the server rejected session. 
-        // in this case we need to ask user to login again. 
-        // but how to do it? maybe we can set some flag in a store and then react to it in a component?
-        // custom code 4400 is not working
-        if (event.code === 4400) {
-            console.error('Server rejected session, not reconnecting. Error: ', event);
-            return;
-        }
+            // Live presence updates — set store, never append to message history
+            if (msg.type === 'USER_JOINED' || msg.type === 'USER_LEFT') {
+                console.log('Presence update:', msg.type, msg.from);
+                presenceUpdate.set(msg);
+                return;
+            }
 
-        if (reconnectAttempts < MAX_RECONNECT) {
-            reconnectAttempts++;
-            console.log(`Reconnect attempt ${reconnectAttempts} in ${RECONNECT_DELAY}ms`);
-            reconnectTimeout = setTimeout(() => connect(userUuid), RECONNECT_DELAY);
-        } else {
-            console.warn('Max reconnect attempts reached. Not retrying.');
-        }
-    };
+            // Typing indicator — set store then auto-clear after 4s
+            if (msg.type === 'TYPING') {
+                if (_typingClearTimer) clearTimeout(_typingClearTimer);
+                typingSignal.set({ conversationId: msg.conversationId!, from: msg.from, fromName: msg.fromName });
+                _typingClearTimer = setTimeout(() => typingSignal.set(null), 4000);
+                return;
+            }
+
+            console.log('Received message:', msg);
+
+            append(msg);   // ← write into shared messages store
+            // Fire the one-shot listener if a new conversationId comes back
+            if (msg.conversationId && newConvoListener) {
+                newConvoListener(msg.conversationId);
+                newConvoListener = null;
+            }
+        };
+
+        ws.onclose = (event) => {
+            isConnected.set(false);
+            ws = null;
+            console.log('WebSocket disconnected. code:', event.code, 'reason:', event.reason);
+
+            if (intentionalClose || FATAL_CLOSE_CODES.has(event.code)) {
+                if (event.code === 4401) sessionExpired.set(true);
+                console.log('Not reconnecting.');
+                return;
+            }
+
+            scheduleReconnect(userUuid);
+        };
+    } catch (err) {
+        // A failed token fetch or a rejected handshake must not end the retry chain —
+        // without this the promise rejects unhandled and the socket stays dead.
+        console.error('WebSocket connect failed:', err);
+        scheduleReconnect(userUuid);
+    } finally {
+        connecting = false;
+    }
 }
 
 export function disconnect(): void {
+  // With no attempt cap left, the flag is what tells onclose this close was ours.
+  intentionalClose = true;
   if (reconnectTimeout) {
     clearTimeout(reconnectTimeout);
     reconnectTimeout = null;
   }
-  reconnectAttempts = MAX_RECONNECT; // prevent auto-reconnect
+  reconnectAttempts = 0;
   ws?.close();
   ws = null;
   isConnected.set(false);
