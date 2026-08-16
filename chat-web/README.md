@@ -96,7 +96,9 @@ The WS token is fetched from `/api/ws-token` in the browser just before `new Web
 ## WebSocket client (`src/lib/store/ws.ts`)
 
 - Fetches a WS token from `/api/ws-token` then connects with the Quarkus subprotocol workaround
-- Reconnects up to 5 times with a 3s delay on unexpected close; does **not** reconnect on custom code `4400` (server-rejected session)
+- Reconnects on every close by default, with exponential backoff (1s base, ×1.5, capped at 30s) and no attempt limit — a preempted node can take longer to reschedule than any fixed cap allows
+- Does **not** reconnect on close code `1000` (normal, including `disconnect()`) or `4401` (session rejected). Code `4503` from the delivery service *is* retried — it means a dependency was unavailable
+- Stops and sets the `sessionExpired` store when `/api/ws-token` returns 401, which is the only failure the browser can positively identify as a dead session
 - Routes presence events (`USER_JOINED` / `USER_LEFT`) separately from chat messages
 - **One-shot `onceNewConversation` listener**: when the server echoes back a message with a resolved `conversationId` for a new private chat, the listener fires once and navigates the client to the permanent conversation URL
 

@@ -53,7 +53,11 @@ Both read `JWT_SECRET` through `$env/dynamic/private` on call, never at module l
 
 **WebSocket handshake (`store/ws.ts`):** Fetches a WS token from `/api/ws-token`, then connects with two subprotocols: `"bearer-token-carrier"` and the URL-encoded `"quarkus-http-upgrade#Authorization#Bearer <token>"` string. Quarkus unpacks the second protocol into an `Authorization` header before JWT validation.
 
-**Reconnect logic (`store/ws.ts`):** Up to 5 attempts with 3s delay. Custom close code `4400` (server-rejected session) skips reconnect entirely.
+**Reconnect logic (`store/ws.ts`):** Retry is the **default** — every close reconnects with exponential backoff (1s base, ×1.5, capped at 30s, no attempt limit) except an explicit `FATAL_CLOSE_CODES` set of `1000` (normal, including our own `disconnect()`) and `4401` (session rejected). Notably `4503` from the delivery service **is** retried: it signals an unavailable dependency, not a bad client.
+
+Genuine session loss is detected at `/api/ws-token`, not on the socket. A dead BFF session returns 401 there, whereas a rejected token fails during the HTTP upgrade and surfaces as `1006` — indistinguishable from an unreachable pod. On a 401 the store sets `sessionExpired` and stops; **nothing consumes that store yet**, so the current UX is a silently non-reconnecting page. Wiring it to a re-login prompt is open work.
+
+`disconnect()` suppresses reconnect via an `intentionalClose` flag (there is no attempt counter left to exhaust), and a `connecting` guard prevents a duplicate socket while the token request is in flight.
 
 **Message store (`store/messages.ts`):** Hybrid server-loaded + live feed.
 - `seed(conversationId, initial)` — populates from server-loaded history, sets cursor to oldest message id
