@@ -9,10 +9,6 @@ export const presenceUpdate: Writable<ChatMessage | null> = writable(null);
 export const typingSignal: Writable<TypingSignal | null> = writable(null);
 let _typingClearTimer: ReturnType<typeof setTimeout> | null = null;
 
-// Set when the BFF refuses to mint a socket token. Components can watch this to prompt
-// a fresh sign-in; nothing reconnects while it is true.
-export const sessionExpired: Writable<boolean> = writable(false);
-
 // Close codes that must NOT be retried. Every other close is treated as transient — a
 // preempted node, a restarting pod, an idle socket reaped by an edge proxy — so retrying
 // is the default and this set is the exception.
@@ -92,9 +88,14 @@ export async function connect(userUuid: string) {
         // The only failure the browser can positively identify as fatal. A rejected token
         // fails here rather than at the upgrade, where @Authenticated returns a 401
         // handshake and the socket reports 1006 — indistinguishable from a dead pod.
+        //
+        // hooks.server.ts already redirects /(app)/ routes to /sign-in without a session;
+        // it simply never runs for a tab that stays put. Navigating hands the decision
+        // back to that guard. A full load rather than goto() so the message, user and
+        // socket state all go with it.
         if (res.status === 401) {
-            console.error('WS token refused: session is gone. Not reconnecting.');
-            sessionExpired.set(true);
+            console.error('WS token refused: session is gone. Redirecting to sign-in.');
+            window.location.href = '/sign-in';
             return;
         }
 
@@ -111,7 +112,6 @@ export async function connect(userUuid: string) {
         ws.onopen = () => {
             isConnected.set(true);
             reconnectAttempts = 0;
-            sessionExpired.set(false);
             console.log('WebSocket connected');
         };
 
@@ -157,8 +157,11 @@ export async function connect(userUuid: string) {
             ws = null;
             console.log('WebSocket disconnected. code:', event.code, 'reason:', event.reason);
 
+            // 4401 means the delivery service refused the token while the BFF session is
+            // still good — a secret/audience mismatch or clock skew, not something the
+            // user can act on. Deliberately not treated as a session expiry: nothing
+            // emits it yet, and it needs its own signal rather than a re-login prompt.
             if (intentionalClose || FATAL_CLOSE_CODES.has(event.code)) {
-                if (event.code === 4401) sessionExpired.set(true);
                 console.log('Not reconnecting.');
                 return;
             }

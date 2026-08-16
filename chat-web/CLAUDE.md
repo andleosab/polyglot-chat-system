@@ -55,7 +55,11 @@ Both read `JWT_SECRET` through `$env/dynamic/private` on call, never at module l
 
 **Reconnect logic (`store/ws.ts`):** Retry is the **default** — every close reconnects with exponential backoff (1s base, ×1.5, capped at 30s, no attempt limit) except an explicit `FATAL_CLOSE_CODES` set of `1000` (normal, including our own `disconnect()`) and `4401` (session rejected). Notably `4503` from the delivery service **is** retried: it signals an unavailable dependency, not a bad client.
 
-Genuine session loss is detected at `/api/ws-token`, not on the socket. A dead BFF session returns 401 there, whereas a rejected token fails during the HTTP upgrade and surfaces as `1006` — indistinguishable from an unreachable pod. On a 401 the store sets `sessionExpired` and stops; **nothing consumes that store yet**, so the current UX is a silently non-reconnecting page. Wiring it to a re-login prompt is open work.
+Genuine session loss is detected at `/api/ws-token`, not on the socket. A dead BFF session returns 401 there, whereas a rejected token fails during the HTTP upgrade and surfaces as `1006` — indistinguishable from an unreachable pod. On a 401 the store redirects to `/sign-in` via `window.location.href`.
+
+There is deliberately no session store to react to. `hooks.server.ts` already redirects `/(app)/` routes to `/sign-in` when there is no session; it just never runs for a tab that never navigates, and the redirect closes exactly that gap. A full page load rather than `goto()` so the message, user and socket state are discarded with it. Connection state itself is already surfaced — `isConnected` drives the Online/Offline dot in `NavRail`, `BottomNav`, and `app-sidebar`.
+
+`4401` is fatal-no-retry but is **not** treated as session expiry: it means the delivery service refused the token while the BFF session is fine (secret/audience mismatch, clock skew), which re-authenticating would not fix. Nothing emits it today; if that changes it needs its own signal.
 
 `disconnect()` suppresses reconnect via an `intentionalClose` flag (there is no attempt counter left to exhaust), and a `connecting` guard prevents a duplicate socket while the token request is in flight.
 
