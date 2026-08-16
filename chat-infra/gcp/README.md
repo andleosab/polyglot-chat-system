@@ -238,6 +238,26 @@ One catch-all hostname is all that is needed — nginx owns the `/` vs `/chat/` 
 Cloudflare upgrades the `/chat/` WebSocket natively. Cloudflare creates the DNS record for
 you. Put the token in `tunnel_token` in the cluster module's `terraform.tfvars`.
 
+Then check **Network → WebSockets** is `On` for the zone. It has defaulted to on for all
+plans for years, so this is a glance, not a step — but the `/chat/` route is dead without
+it, and the symptom is a failed upgrade rather than anything naming WebSockets.
+
+Two things to know before debugging that route:
+
+- **Idle sockets are capped at 100s** and no plan below Enterprise can change it. The
+  delivery service already pings every 30s to hold the connection open
+  (`quarkus.websockets-next.server.auto-ping-interval`), so this should be handled — but if
+  idle tabs disconnect after roughly two minutes, that setting is the first place to look.
+- **If the `/chat/` handshake fails outright** — HTTP 400, or a socket that closes 1006
+  immediately — try `--protocol http2` in the cloudflared args before looking anywhere
+  else. cloudflared defaults to QUIC, which has a known history of dropping the `Upgrade`
+  header (cloudflared#1652). The flag is not preset, so this is the first thing to add.
+
+Note the cluster is **already live** in the common case: the token only needs to be in
+`terraform.tfvars` before the *first* apply. Adding it later is an in-place update of
+`kubernetes_secret_v1.chat_secrets` — re-apply, then re-run `deploy-infra-services.sh`,
+which picks up the now-populated token and deploys cloudflared. No teardown involved.
+
 **Skip this entirely if you have no Cloudflare account yet.** Leave `tunnel_token` empty:
 `deploy-infra-services.sh` skips the cloudflared release, the cluster comes up with no
 external ingress, and `kubectl port-forward` is the way in (step 9 below). Everything

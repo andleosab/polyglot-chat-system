@@ -56,6 +56,19 @@ Cloudflare handles the WebSocket upgrade for `/chat/` natively; no `Upgrade` /
   exists, `tunnel_token` stays empty, `deploy-infra-services.sh` skips the cloudflared
   release, and `kubectl port-forward svc/nginx 8080:80 -n chat` is the only way in — which
   is a supported state, not a broken one.
+- **WebSocket idle timeout drops from one hour to 100 seconds, and is not negotiable.**
+  nginx sets `proxy_read_timeout 3600` for `/chat/`; Cloudflare caps WebSocket idle time at
+  100s globally and exposes no override below the Enterprise tier. The path's tightest link
+  therefore stops being ours. This was not accounted for when the decision was revised, and
+  it is the one consequence that required a code change rather than a config change: the
+  delivery service now emits RFC 6455 ping frames every 30s via
+  `quarkus.websockets-next.server.auto-ping-interval`, and the browser store retries every
+  close by default rather than giving up after five attempts.
+
+  Worth recording *why* the fix is server-side ping frames rather than the app-level
+  `{"type":"ping"}` message that most guidance suggests: `MessageType` is a closed enum, so
+  a JSON ping would fail deserialization before reaching the handler and would need a
+  protocol change on both sides. Control frames need neither.
 
 ## What changed on revision
 
@@ -79,3 +92,24 @@ The nginx-to-ClusterIP change, the firewall removal, and the port-forward path a
 exercised. **The cloudflared leg is untested** — it has not run against a real tunnel,
 because no Cloudflare account exists yet. Treat the chart and the dashboard steps as
 unverified until a tunnel is live.
+
+Three specific assumptions are load-bearing and unverified. Check them in this order the
+first time a tunnel runs:
+
+1. **That ping frames reset Cloudflare's 100s idle timer.** The keepalive above is built on
+   this. It is reasonable — they are bytes on the stream — but it is an assumption, not a
+   measured result, and the whole mitigation rests on it. Test by leaving a tab idle for
+   >2 minutes through the tunnel. If the socket still drops, the fallback is an app-level
+   JSON ping, which then does require adding a `PING` member to `MessageType` and a guard
+   in `ChatSocket.onMessage`.
+2. **That the `/chat/` upgrade survives cloudflared's default QUIC transport.** There is a
+   known class of bug (cloudflared#1652) where QUIC drops the `Upgrade` header, presenting
+   as HTTP 400 or a 1006 close. `--protocol http2` is the fix. It is deliberately *not*
+   preset in the chart, so that if the handshake works there is no lingering question of
+   whether the flag was ever needed.
+3. **That the graceful-shutdown timers are actually sized right.** `--grace-period 15s`
+   against `terminationGracePeriodSeconds: 30` has never been observed under a real
+   preemption.
+
+Note also that the chart cannot use a `preStop` exec hook to drain: the cloudflared image
+is distroless and has no `/bin/sh`. Draining is cloudflared's own SIGTERM handling.

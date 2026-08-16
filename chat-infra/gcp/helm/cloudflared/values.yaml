@@ -3,12 +3,30 @@ image:
   tag: "2026.7.3"
   pullPolicy: IfNotPresent
 
-# Two connectors so a rolling restart or a node hiccup doesn't drop the tunnel.
-# Cloudflare load-balances across all registered connectors of a tunnel.
+# Two connectors so a rolling restart doesn't drop the tunnel. Cloudflare load-balances
+# across all registered connectors of a tunnel.
+#
+# This does NOT survive losing the node. The pool is one Spot VM with no autoscaler, so
+# both replicas sit on it and a preemption takes the tunnel with them; Cloudflare routes
+# to no connector until the MIG replaces the node and the pods reschedule. Surviving that
+# needs a second node, not more replicas — and pod anti-affinity would make it worse here,
+# not better: a required rule on one node leaves the second replica Pending forever, which
+# nothing will ever satisfy without an autoscaler.
 replicas: 2
 
 secretName: chat-secrets
 secretKey: tunnel-token
+
+# On SIGTERM cloudflared stops accepting new requests and waits for in-flight ones, so
+# draining needs no preStop hook — and could not use one anyway: the image is distroless,
+# with no /bin/sh for an exec hook to run.
+#
+# The two timers must not be equal. cloudflared's --grace-period and Kubernetes'
+# terminationGracePeriodSeconds both default to 30s, so out of the box the kubelet SIGKILLs
+# at the exact moment the drain window closes, leaving no margin. Keep gracePeriodSeconds
+# comfortably below terminationGracePeriodSeconds.
+gracePeriodSeconds: 15
+terminationGracePeriodSeconds: 30
 
 resources:
   requests:
