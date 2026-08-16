@@ -32,7 +32,7 @@ The endpoint is `@Authenticated` — SmallRye JWT validates the token before the
 1. Call `chat-message-service GET /messaging/conversations/ids?id={uuid}` to fetch conversation IDs
 2. Store `Set<Long> conversationIds` and `username` in `WebSocketConnection.userData()`
 3. Send `USER_JOINED` message to the connecting client
-4. If the REST call fails, close the connection with custom code `4400` — the browser WS store watches for this code and does not attempt to reconnect
+4. If the REST call fails, close the connection with custom code `4503` — a dependency was unavailable, so the browser WS store retries with backoff. `4401` is reserved for a genuinely rejected session, which the client treats as fatal; nothing emits it today because `@Authenticated` rejects during the upgrade and the browser only sees `1006`
 
 **On message:**
 - If `conversationId` is null, call `chat-message-service POST /messaging/conversations` to create a new private conversation, then add the returned ID to this connection's group set

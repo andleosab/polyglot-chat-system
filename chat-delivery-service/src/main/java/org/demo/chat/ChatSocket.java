@@ -40,6 +40,18 @@ public class ChatSocket {
 	
 	private static final Logger log = LoggerFactory.getLogger(ChatSocket.class);	
 
+    // Close codes live in RFC 6455's 4000-4999 private-use range. The client retries every
+    // close except the fatal ones, so a code's number is the contract: mirror the HTTP
+    // status whose retry semantics match.
+    //
+    //   4503  a dependency needed to open the session was unavailable — retryable
+    //   4401  the session itself was rejected — fatal, re-authenticate
+    //
+    // 4401 is unused: @Authenticated rejects during the HTTP upgrade, so the socket never
+    // opens and the browser reports 1006 with no close frame. Reserved so the fatal case
+    // has a code waiting if it ever becomes expressible.
+    private static final int CLOSE_DEPENDENCY_UNAVAILABLE = 4503;
+
     @Inject
     ChatProducer producer;
     @Inject
@@ -91,7 +103,7 @@ public class ChatSocket {
 			}
 			
 	        log.error("Failed to get conversation IDs for user {}: {}", username, error);
-	        connection.close(new CloseReason(4400, "Failed to initialize session due to: " + error))
+	        connection.close(new CloseReason(CLOSE_DEPENDENCY_UNAVAILABLE, "Failed to initialize session due to: " + error))
 		        .subscribe().with(
 		                v -> log.info("Connection closed for user {} Error: {}", username, error),
 		                err -> log.error("Failed to close connection: {}", err.getMessage())
