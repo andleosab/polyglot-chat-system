@@ -98,7 +98,7 @@ The WS token is fetched from `/api/ws-token` in the browser just before `new Web
 - Fetches a WS token from `/api/ws-token` then connects with the Quarkus subprotocol workaround
 - Reconnects on every close by default, with exponential backoff (1s base, ×1.5, capped at 30s) and no attempt limit — a preempted node can take longer to reschedule than any fixed cap allows
 - Does **not** reconnect on close code `1000` (normal, including `disconnect()`) or `4401` (session rejected). Code `4503` from the delivery service *is* retried — it means a dependency was unavailable
-- Stops and sets the `sessionExpired` store when `/api/ws-token` returns 401, which is the only failure the browser can positively identify as a dead session
+- Redirects to `/sign-in` when `/api/ws-token` returns 401 — the only failure the browser can positively identify as a dead session. `hooks.server.ts` would already redirect on any navigation; this covers the tab that never navigates
 - Routes presence events (`USER_JOINED` / `USER_LEFT`) separately from chat messages
 - **One-shot `onceNewConversation` listener**: when the server echoes back a message with a resolved `conversationId` for a new private chat, the listener fires once and navigates the client to the permanent conversation URL
 
