@@ -7,13 +7,13 @@ terraform {
     }
   }
 
-  backend "gcs" {
-    # Same bucket as the cluster module, different prefix — the two states are
-    # independent, which is the whole point of the split: `terraform destroy` in
-    # ../cluster must not take the budget with it.
-    #   terraform init -backend-config="bucket=<YOUR_PROJECT_ID>-tf-state"
-    prefix = "chat-demo/budget"
-  }
+  # backend "gcs" {
+  #   # Same bucket as the cluster module, different prefix — the two states are
+  #   # independent, which is the whole point of the split: `terraform destroy` in
+  #   # ../cluster must not take the budget with it.
+  #   #   terraform init -backend-config="bucket=<YOUR_PROJECT_ID>-tf-state"
+  #   prefix = "chat-demo/budget"
+  # }
 }
 
 provider "google" {

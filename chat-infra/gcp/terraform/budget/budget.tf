@@ -36,6 +36,14 @@ resource "google_billing_budget" "chat_demo" {
   }
 
   threshold_rules {
+    threshold_percent = 0.75
+  }  
+
+  threshold_rules {
+    threshold_percent = 0.9
+  }  
+
+  threshold_rules {
     threshold_percent = 1.0
   }
 
