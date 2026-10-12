@@ -11,16 +11,16 @@ terraform {
     }
   }
 
-  backend "gcs" {
-    # Bucket is supplied at init time, not hardcoded — keeps the project-specific
-    # name out of version control. After running bootstrap/create-state-bucket.sh,
-    # init with your real bucket name:
-    #   terraform init -backend-config="bucket=<YOUR_PROJECT_ID>-tf-state"
-    #
-    # The budget module shares this bucket under a different prefix, which keeps
-    # the two states independent. Do not point both at the same prefix.
-    prefix = "chat-demo/state"
-  }
+  # backend "gcs" {
+  #   # Bucket is supplied at init time, not hardcoded — keeps the project-specific
+  #   # name out of version control. After running bootstrap/create-state-bucket.sh,
+  #   # init with your real bucket name:
+  #   #   terraform init -backend-config="bucket=<YOUR_PROJECT_ID>-tf-state"
+  #   #
+  #   # The budget module shares this bucket under a different prefix, which keeps
+  #   # the two states independent. Do not point both at the same prefix.
+  #   prefix = "chat-demo/state"
+  # }
 }
 
 provider "google" {
